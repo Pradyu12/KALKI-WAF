@@ -344,7 +344,7 @@ def log_incident_to_db(event_data: Dict[str, Any]):
 @app.middleware("http")
 async def inspect_and_proxy_traffic(request: Request, call_next):
     # Bypass inspection rules for internal REST telemetry endpoints, sandbox testing, dashboard, and brand assets
-    if request.url.path.startswith("/api/v1/") or request.url.path in ["/", "/dashboard", "/kalki_waf_logo.png"]:
+    if request.url.path.startswith("/api/v1/") or request.url.path in ["/", "/dashboard", "/kalki_waf_logo.png"] or request.url.path.endswith("kalki_waf_logo.png"):
         return await call_next(request)
 
     client_ip = request.client.host if request.client else "127.0.0.1"
@@ -461,7 +461,7 @@ async def root():
 async def dashboard():
     """Serves the WAF static dashboard interface."""
     try:
-        with open("dashboard.html", "r") as f:
+        with open("index.html", "r") as f:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Dashboard UI not found")
@@ -469,13 +469,8 @@ async def dashboard():
 @app.get("/kalki_waf_logo.png")
 async def get_logo():
     """Serves the custom Kalki brand logo synchronously for zero-dependency resiliency."""
-    try:
-        if os.path.exists("kalki_waf_logo.png"):
-            with open("kalki_waf_logo.png", "rb") as f:
-                content = f.read()
-            return Response(content=content, media_type="image/png")
-    except Exception as e:
-        print(f"[ERROR] Failed to serve logo: {e}")
+    if os.path.exists("kalki_waf_logo.png"):
+        return FileResponse("kalki_waf_logo.png", media_type="image/png")
     raise HTTPException(status_code=404, detail="Logo asset not found")
 
 # ─── REST TELEMETRY ENDPOINT FOR DASHBOARD INTERFACES ───────────────
