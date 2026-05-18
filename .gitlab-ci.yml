@@ -1,10 +1,22 @@
 stages:
   - test
   - build
+  - secret-detection
 
 variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
+  SECRET_DETECTION_ENABLED: 'true'
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+sast:
+  stage: test
+
+secret_detection:
+  stage: secret-detection
 
 test-code:
   stage: test
