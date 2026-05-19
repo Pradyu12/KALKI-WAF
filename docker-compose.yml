@@ -25,13 +25,25 @@ services:
       - "8000:8000"
     environment:
       - DB_HOST=db
-      - DB_USER=root
-      - DB_PASSWORD=your_secure_password
+      - DB_USER=prado
+      - DB_PASSWORD=pradyu2916
       - DB_NAME=security_gateway
-      - UPSTREAM_SERVER_URL=http://upstream_app:8080
+      - UPSTREAM_SERVER_URL=http://upstream:8080
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./:/app
+
+  upstream:
+    build:
+      context: ./upstream
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
 
 volumes:
   db_data:

@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime
 import time
 from typing import Dict, Any, List
+from urllib.parse import unquote
 
 import os
 from contextlib import asynccontextmanager
@@ -18,10 +19,11 @@ from pydantic import BaseModel, Field
 
 # ─── DATABASE CONFIGURATION & RESILIENT FALLBACK ────────────────────────
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'user': os.getenv('DB_USER', 'root'),
-    'password': os.getenv('DB_PASSWORD', 'your_secure_password'),
-    'database': os.getenv('DB_NAME', 'security_gateway')
+    'host':     os.getenv('DB_HOST', 'localhost'),
+    'user':     os.getenv('DB_USER', 'prado'),
+    'password': os.getenv('DB_PASSWORD', 'pradyu2916'),
+    'database': os.getenv('DB_NAME', 'security_gateway'),
+    'use_pure': True
 }
 
 def get_db_connection():
@@ -343,40 +345,52 @@ def log_incident_to_db(event_data: Dict[str, Any]):
 # ─── WAF INSPECTION INTERCEPTOR MIDDLEWARE ───────────────────────────
 @app.middleware("http")
 async def inspect_and_proxy_traffic(request: Request, call_next):
-    # Bypass inspection rules for internal REST telemetry endpoints, sandbox testing, dashboard, and brand assets
-    if request.url.path.startswith("/api/v1/") or request.url.path in ["/", "/dashboard", "/kalki_waf_logo.png"]:
-        return await call_next(request)
-
     client_ip = request.client.host if request.client else "127.0.0.1"
     user_agent = request.headers.get("user-agent", "Unknown")
     target_uri = str(request.url.path)
-    
-    # 1. Collate Inspectable Attack Surfaces
-    query_params = str(request.url.query)
+
+    # ── Rate-limit: applied FIRST, before any path bypass ──────────────
+    if not check_rate_limit(client_ip):
+        incident_id = str(uuid.uuid4())
+        bg_tasks = BackgroundTasks()
+        bg_tasks.add_task(log_incident_to_db, {
+            "incident_id": incident_id,
+            "timestamp": datetime.utcnow(),
+            "source_ip": client_ip,
+            "user_agent": user_agent,
+            "target_uri": target_uri,
+            "malicious_payload": "RATE_LIMIT_EXCEEDED",
+            "threat_category": "Anomalous",
+            "mitigation_action": "Blocked",
+        })
+        html_payload = generate_block_page(incident_id, client_ip, "Anomalous")
+        return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
+
+    # Bypass WAF inspection for internal REST telemetry endpoints, sandbox testing,
+    # dashboard, and brand assets. Rate-limiting is handled above.
+    if request.url.path.startswith("/api/v1/") or request.url.path in ["/", "/dashboard", "/kalki_waf_logo.png"]:
+        return await call_next(request)
+
+    # 2. Collate Inspectable Attack Surfaces
+    query_params = unquote(str(request.url.query), encoding="utf-8", errors="replace")
     body_payload = b""
     if request.method in ["POST", "PUT", "PATCH"]:
         body_payload = await request.body()
     
     inspectable_string = f"{query_params} {body_payload.decode('utf-8', errors='ignore')}"
 
-    # 0.5 Check Rate Limit
+    # 3. Evaluate Inspection Engine against Loaded Rules
     detected_threat = None
     matched_rule = None
-    
-    if not check_rate_limit(client_ip):
-        detected_threat = "Anomalous"
-        inspectable_string = "RATE_LIMIT_EXCEEDED"
-    
-    # 2. Evaluate Inspection Engine against Loaded Rules
-    if not detected_threat:
-        for rule in ACTIVE_RULES_CACHE:
-            try:
-                if rule['compiled_regex'].search(inspectable_string):
-                    detected_threat = rule['category']
-                    matched_rule = rule
-                    break
-            except Exception as e:
-                print(f"[ERROR] Regex matching error on rule {rule['identifier']}: {e}")
+
+    for rule in ACTIVE_RULES_CACHE:
+        try:
+            if rule['compiled_regex'].search(inspectable_string):
+                detected_threat = rule['category']
+                matched_rule = rule
+                break
+        except Exception as e:
+            print(f"[ERROR] Regex matching error on rule {rule['identifier']}: {e}")
 
     # 3. Handle Mitigation Logic if Vector Confirmed
     if detected_threat:
@@ -449,6 +463,8 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
             background=bg_tasks if detected_threat else None
         )
     except httpx.RequestError as exc:
+        import sys, traceback as _tb
+        _tb.print_exc(file=sys.stderr)
         raise HTTPException(status_code=502, detail=f"Upstream Server Unreachable: {exc}")
 
 # ─── DASHBOARD ENDPOINT ──────────────────────────────────────────────
@@ -538,6 +554,8 @@ async def get_dashboard_telemetry():
     try:
         return await run_in_threadpool(fetch_telemetry_data)
     except Exception as err:
+        import sys, traceback as _tb
+        _tb.print_exc(file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"SIEM Backend Error: {str(err)}")
 
 # ─── PYDANTIC MODELS FOR RULES CONTROLLER ─────────────────────────────
