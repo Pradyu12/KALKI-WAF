@@ -1,4 +1,11 @@
-CREATE DATABASE IF NOT EXISTS security_gateway;
+-- KALKI WAF — Migration Schema
+-- Default backend is SQLite (auto-bootstrapped by init_db() in main.py).
+-- Apply this as-is for MariaDB/MySQL deployments.
+-- SQLite-equivalent tables are also created automatically; only use this file
+-- when overriding to a MariaDB instance via docker-compose or external hosting.
+--
+-- Usage (MariaDB):  mysql -u user -p security_gateway < schema.sql
+
 USE security_gateway;
 
 CREATE TABLE IF NOT EXISTS security_events (

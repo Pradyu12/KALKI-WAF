@@ -1,9 +1,9 @@
 import re
 import uuid
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from urllib.parse import unquote
 
 import os
@@ -13,46 +13,62 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 import httpx
-import mysql.connector
+import psutil
 import sqlite3
 from pydantic import BaseModel, Field
 
-# ─── DATABASE CONFIGURATION & RESILIENT FALLBACK ────────────────────────
-DB_CONFIG = {
-    'host':     os.getenv('DB_HOST', 'localhost'),
-    'user':     os.getenv('DB_USER', 'prado'),
-    'password': os.getenv('DB_PASSWORD', 'pradyu2916'),
-    'database': os.getenv('DB_NAME', 'security_gateway'),
-    'use_pure': True
-}
+# ─── FIREBASE CONFIGURATION ────────────────────────────────────────────────
+# Uses environment variables for Firebase credentials
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-credentials.json")
 
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    from google.auth.exceptions import DefaultCredentialsError
+    
+    # Initialize Firebase (only if credentials file exists or env is set)
+    if os.path.exists(FIREBASE_CREDENTIALS_PATH):
+        cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        FIREBASE_ENABLED = True
+    elif os.getenv("FIREBASE_PROJECT_ID"):
+        # Try to use application default credentials
+        cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        FIREBASE_ENABLED = True
+    else:
+        FIREBASE_ENABLED = False
+        db = None
+except ImportError:
+    FIREBASE_ENABLED = False
+    db = None
+except DefaultCredentialsError:
+    FIREBASE_ENABLED = False
+    db = None
+
+# Fallback to SQLite if Firebase is not available
 def get_db_connection():
-    """Tries to connect to MariaDB/MySQL. If it fails, falls back gracefully to SQLite in the workspace."""
-    try:
-        # Avoid connecting if DB_HOST is set to localhost and local port is offline
-        conn = mysql.connector.connect(**DB_CONFIG)
-        return conn, "mysql"
-    except Exception:
-        # Fallback to local SQLite file
-        conn = sqlite3.connect("security_gateway.db")
-        conn.row_factory = sqlite3.Row
-        return conn, "sqlite"
+    """Returns SQLite connection as fallback when Firebase is unavailable."""
+    conn = sqlite3.connect("security_gateway.db")
+    conn.row_factory = sqlite3.Row
+    return conn, "sqlite"
 
 def query_db(query: str, args: tuple = (), one: bool = False):
-    """Database query wrapper that adapts syntax between MySQL (%s) and SQLite (?)."""
-    conn, db_type = get_db_connection()
-    if db_type == "sqlite":
-        query = query.replace("%s", "?")
+    """Database query wrapper that tries Firebase first, falls back to SQLite."""
+    if FIREBASE_ENABLED and db:
+        return query_firebase(query, args, one)
+    return query_sqlite(query, args, one)
+
+def query_sqlite(query: str, args: tuple = (), one: bool = False):
+    """SQLite fallback implementation."""
+    conn = sqlite3.connect("security_gateway.db")
+    conn.row_factory = sqlite3.Row
     try:
-        if db_type == "mysql":
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute(query, args)
-            rv = cursor.fetchall()
-            cursor.close()
-        else:
-            cursor = conn.execute(query, args)
-            rv = [dict(row) for row in cursor.fetchall()]
-            cursor.close()
+        cursor = conn.execute(query, args)
+        rv = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
         return (rv[0] if rv else None) if one else rv
     except Exception as e:
         print(f"[DATABASE ERROR] Query execution failed: {e}")
@@ -60,20 +76,58 @@ def query_db(query: str, args: tuple = (), one: bool = False):
     finally:
         conn.close()
 
-def execute_db(query: str, args: tuple = ()) -> bool:
-    """Database write transaction wrapper that adapts syntax between MySQL (%s) and SQLite (?)."""
-    conn, db_type = get_db_connection()
-    if db_type == "sqlite":
-        query = query.replace("%s", "?")
+def query_firebase(query: str, args: tuple = (), one: bool = False):
+    """Firebase Firestore query implementation."""
+    q = query.strip().lower()
+    
     try:
-        if db_type == "mysql":
-            cursor = conn.cursor()
-            cursor.execute(query, args)
-            conn.commit()
-            cursor.close()
-        else:
-            conn.execute(query, args)
-            conn.commit()
+        # Handle SELECT queries
+        if q.startswith("select"):
+            if "from security_events" in q:
+                collection = db.collection("security_events")
+                docs = collection.stream()
+                results = []
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["incident_id"] = doc.id
+                    results.append(data)
+                return (results[0] if results else None) if one else results
+            
+            elif "from rules" in q:
+                collection = db.collection("rules")
+                docs = collection.stream()
+                results = []
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["rule_id"] = doc.id
+                    results.append(data)
+                return (results[0] if results else None) if one else results
+            
+            elif "from mitigation_state" in q:
+                doc = db.collection("mitigation_state").document("global").get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["id"] = "global"
+                    return data if one else [data]
+                return None if one else []
+        
+        return None
+    except Exception as e:
+        print(f"[FIREBASE ERROR] Query execution failed: {e}")
+        return None
+
+def execute_db(query: str, args: tuple = ()) -> bool:
+    """Database write transaction wrapper that tries Firebase first, falls back to SQLite."""
+    if FIREBASE_ENABLED and db:
+        return execute_firebase(query, args)
+    return execute_sqlite(query, args)
+
+def execute_sqlite(query: str, args: tuple = ()) -> bool:
+    """SQLite fallback implementation."""
+    conn = sqlite3.connect("security_gateway.db")
+    try:
+        conn.execute(query, args)
+        conn.commit()
         return True
     except Exception as e:
         print(f"[DATABASE ERROR] Write transaction failed: {e}")
@@ -81,80 +135,110 @@ def execute_db(query: str, args: tuple = ()) -> bool:
     finally:
         conn.close()
 
-def init_db():
-    """Bootstraps necessary tables for alerts, rules, and global postures in MySQL or SQLite."""
-    conn, db_type = get_db_connection()
+def execute_firebase(query: str, args: tuple = ()) -> bool:
+    """Firebase Firestore write implementation."""
+    q = query.strip().lower()
+    
     try:
-        if db_type == "sqlite":
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS security_events (
-                    incident_id TEXT PRIMARY KEY,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    source_ip TEXT NOT NULL,
-                    user_agent TEXT,
-                    target_uri TEXT NOT NULL,
-                    malicious_payload TEXT,
-                    threat_category TEXT NOT NULL,
-                    mitigation_action TEXT NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS rules (
-                    rule_id TEXT PRIMARY KEY,
-                    identifier TEXT NOT NULL UNIQUE,
-                    pattern TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    is_active INTEGER DEFAULT 1,
-                    blocks_count INTEGER DEFAULT 0,
-                    severity TEXT NOT NULL,
-                    description TEXT
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS mitigation_state (
-                    id TEXT PRIMARY KEY,
-                    posture TEXT NOT NULL
-                )
-            """)
-        else:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS security_events (
-                    incident_id VARCHAR(36) PRIMARY KEY,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    source_ip VARCHAR(45) NOT NULL,
-                    user_agent TEXT,
-                    target_uri VARCHAR(2048) NOT NULL,
-                    malicious_payload TEXT,
-                    threat_category VARCHAR(50) NOT NULL,
-                    mitigation_action VARCHAR(50) NOT NULL,
-                    INDEX idx_timestamp (timestamp),
-                    INDEX idx_threat_category (threat_category)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS rules (
-                    rule_id VARCHAR(36) PRIMARY KEY,
-                    identifier VARCHAR(255) NOT NULL UNIQUE,
-                    pattern TEXT NOT NULL,
-                    action VARCHAR(50) NOT NULL,
-                    category VARCHAR(50) NOT NULL,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    blocks_count INT DEFAULT 0,
-                    severity VARCHAR(50) NOT NULL,
-                    description TEXT
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS mitigation_state (
-                    id VARCHAR(50) PRIMARY KEY,
-                    posture VARCHAR(50) NOT NULL
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            """)
-            cursor.close()
+        if q.startswith("insert into rules"):
+            rule_id = args[0]
+            data = {
+                "identifier": args[1],
+                "pattern": args[2],
+                "action": args[3],
+                "category": args[4],
+                "is_active": bool(args[5]),
+                "blocks_count": int(args[6]),
+                "severity": args[7],
+                "description": args[8] if len(args) > 8 else ""
+            }
+            db.collection("rules").document(rule_id).set(data)
+            return True
+        
+        elif q.startswith("insert into security_events"):
+            incident_id = args[0]
+            data = {
+                "timestamp": args[1] if isinstance(args[1], datetime) else datetime.fromisoformat(args[1].replace('Z', '+00:00')),
+                "source_ip": args[2],
+                "user_agent": args[3],
+                "target_uri": args[4],
+                "malicious_payload": args[5],
+                "threat_category": args[6],
+                "mitigation_action": args[7]
+            }
+            db.collection("security_events").document(incident_id).set(data)
+            return True
+        
+        elif q.startswith("update rules"):
+            if "blocks_count" in q:
+                rule_id = args[0] if len(args) == 1 else args[1]
+                doc = db.collection("rules").document(rule_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["blocks_count"] = data.get("blocks_count", 0) + 1
+                    db.collection("rules").document(rule_id).update({"blocks_count": data["blocks_count"]})
+                    return True
+            elif "is_active" in q:
+                rule_id = args[1]
+                db.collection("rules").document(rule_id).update({"is_active": bool(args[0])})
+                return True
+        
+        elif q.startswith("update mitigation_state"):
+            db.collection("mitigation_state").document("global").update({"posture": args[0]})
+            return True
+        
+        elif q.startswith("delete from rules"):
+            db.collection("rules").document(args[0]).delete()
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"[FIREBASE ERROR] Write transaction failed: {e}")
+        return False
+
+def init_db():
+    """Bootstraps necessary collections/documents for Firebase or creates SQLite tables as fallback."""
+    if FIREBASE_ENABLED and db:
+        # Ensure required collections exist (Firestore creates them on first write)
+        print("[INFO] Firebase Firestore initialized successfully")
+        return
+    
+    # Fallback to SQLite
+    conn = sqlite3.connect("security_gateway.db")
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS security_events (
+                incident_id TEXT PRIMARY KEY,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                source_ip TEXT NOT NULL,
+                user_agent TEXT,
+                target_uri TEXT NOT NULL,
+                malicious_payload TEXT,
+                threat_category TEXT NOT NULL,
+                mitigation_action TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rules (
+                rule_id TEXT PRIMARY KEY,
+                identifier TEXT NOT NULL UNIQUE,
+                pattern TEXT NOT NULL,
+                action TEXT NOT NULL,
+                category TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                blocks_count INTEGER DEFAULT 0,
+                severity TEXT NOT NULL,
+                description TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS mitigation_state (
+                id TEXT PRIMARY KEY,
+                posture TEXT NOT NULL
+            )
+        """)
         conn.commit()
-        print(f"[INFO] Database tables synchronized. Scheme: {db_type.upper()}")
+        print("[INFO] Database tables synchronized. Scheme: SQLITE")
 
         # Seed defaults if empty
         rules_check = query_db("SELECT COUNT(*) as cnt FROM rules", one=True)
@@ -175,28 +259,61 @@ def init_db():
                 ("rfi-blocker-01", "Remote File Inclusion (RFI)", 
                  r"(https?|ftp|file|php|data):\/",
                  "Drop & Blacklist", "CRITICAL", 1, 12, "CRITICAL", 
-                 "Blocks attempts to include remote files via URI schemes in parameter fields.")
+                 "Blocks attempts to include remote files via URI schemes in parameter fields."),
+                ("cmd-injection-01", "Command Injection Shield", 
+                 r"(;|\||`|\$\(|&&|\|\|)\s*(cat|ls|pwd|whoami|id|uname|wget|curl|bash|sh|nc|netcat|python|perl|ruby|php)\b",
+                 "Drop & Blacklist", "CMDi", 1, 0, "CRITICAL",
+                 "Detects OS command injection attempts via shell metacharacters and common binaries."),
+                ("path-traversal-01", "Path Traversal Protection", 
+                 r"(\.\.\/|\.\.\\|%2e%2e%2f|%2e%2e\/|\.\.%2f|%2e%2e%5c)",
+                 "Drop & Blacklist", "PATH", 1, 0, "Level 2",
+                 "Prevents directory traversal attacks targeting sensitive file access."),
+                ("lfi-rfi-01", "Local/Remote File Inclusion", 
+                 r"(php://|file://|expect://|zip://|zlib://|data://|glob://|phar://)",
+                 "Drop & Blacklist", "LFI", 1, 0, "CRITICAL",
+                 "Blocks PHP wrapper injection and file inclusion vector attacks."),
+                ("xml-xxe-01", "XML External Entity (XXE)", 
+                 r"(<!ENTITY|SYSTEM|PUBLIC)\s+.*?(file|expect|http|https|ftp)",
+                 "Drop & Blacklist", "XXE", 1, 0, "CRITICAL",
+                 "Prevents XML External Entity attacks that can read local files or SSRF."),
+                ("ssti-01", "Server-Side Template Injection", 
+                 r"(\{\{.*\}\}|\{\%.*\s*(import|include|extends)\s*\%\}|#\{.*\}|\$\{.*\}|jsp:.*|asp:.*)",
+                 "Drop & Blacklist", "SSTI", 1, 0, "CRITICAL",
+                 "Detects template injection attacks in Jinja2, Twig, Velocity, and other template engines."),
+                ("jsonp-abuse-01", "JSONP Callback Abuse", 
+                 r"callback\s*=\s*['\"]?\s*[a-zA-Z0-9_$]+\s*['\"]?",
+                 "Log Payload Only", "JSONP", 1, 0, "Level 3",
+                 "Flags potential JSONP abuse and cross-origin data exfiltration attempts."),
             ]
             for r in seed_rules:
                 execute_db("""
                     INSERT INTO rules (rule_id, identifier, pattern, action, category, is_active, blocks_count, severity, description)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, r)
             print("[INFO] Successfully seeded default security profiles into registry.")
-                
-        posture_check = query_db("SELECT COUNT(*) as cnt FROM mitigation_state", one=True)
-        if posture_check and posture_check['cnt'] == 0:
-            execute_db("INSERT INTO mitigation_state (id, posture) VALUES ('global', 'Standard Posture')")
-            print("[INFO] Successfully seeded global posture settings.")
+        
+            posture_check = query_db("SELECT COUNT(*) as cnt FROM mitigation_state", one=True)
+            if posture_check and posture_check['cnt'] == 0:
+                execute_db("INSERT INTO mitigation_state (id, posture) VALUES ('global', 'Standard Posture')")
+                print("[INFO] Successfully seeded global posture settings.")
 
     except Exception as e:
         print(f"[CRITICAL] Database bootstrapping sequence failed: {e}")
     finally:
         conn.close()
+# ─── SHARED RUNTIME METRICS ─────────────────────────────────────────────
+LIVE_STATS = {
+    "requests_per_second": 0.0,
+    "cpu_percent": 0.0,
+    "memory_mb": 0.0,
+    "active_connections": 0,
+}
 
-# ─── ACTIVE SIGNATURE CACHE & OPERATIONAL POSTURES ──────────────────
+# Seed defaults if empty
 ACTIVE_RULES_CACHE = []
 GLOBAL_POSTURE = "Standard Posture"
+BACKUP_RESPONSES = {}
+INCIDENT_RESPONSE_CACHE = {}
 
 def reload_rules_cache():
     """Compiles active regex logic signatures into memory for high-performance traffic scanning."""
@@ -232,16 +349,44 @@ def reload_global_posture():
     print(f"[INFO] Threat Engine: Global operating posture synchronized -> {GLOBAL_POSTURE}")
 
 
+# ─── BACKGROUND METRICS SAMPLER ────────────────────────────────────────
+_metrics_task: Optional[asyncio.Task] = None
+_request_count: int = 0
+
+async def _metrics_sampler():
+    """Background task that periodically samples CPU, RAM, and request-rate metrics."""
+    global _request_count
+    next_ts = asyncio.get_event_loop().time()
+    while True:
+        try:
+            LIVE_STATS["cpu_percent"]    = psutil.cpu_percent(interval=None)
+            LIVE_STATS["memory_mb"]      = round(psutil.Process().memory_info().rss / 1024 / 1024, 1)
+            LIVE_STATS["requests_per_second"] = round(_request_count / 2.0, 2)
+            LIVE_STATS["active_connections"]   = LIVE_STATS.get("active_connections", 0)
+            _request_count = 0
+        except Exception:
+            pass
+        # skew-compensated sleep: account for sampling time
+        next_ts += 2.0
+        now = asyncio.get_event_loop().time()
+        await asyncio.sleep(max(0, next_ts - now))
+
+
 # ─── LIFESPAN MANAGED APPLICATION STARTUP ────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB (creates sqlite file or mysql tables)
+    global _metrics_task
+    # Initialize DB (creates sqlite file or firebase collections)
     init_db()
     # Cache compilation
     reload_rules_cache()
     # Posture settings sync
     reload_global_posture()
+    # Start live metrics background sampler
+    _metrics_task = asyncio.create_task(_metrics_sampler())
     yield
+    if _metrics_task:
+        _metrics_task.cancel()
     await http_client.aclose()
 
 app = FastAPI(title="Kalki WAF Core Engine", version="1.0.0", lifespan=lifespan)
@@ -253,6 +398,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── REQUEST CONNECTION COUNTER ─────────────────────────────────────────
+_request_count: int = 0
+
+@app.middleware("http")
+async def count_request(request: Request, call_next):
+    global _request_count
+    _request_count += 1
+    response = await call_next(request)
+    return response
 
 # ─── TARGET UPSTREAM PROFILE ─────────────────────────────────────────
 UPSTREAM_SERVER_URL = os.getenv("UPSTREAM_SERVER_URL", "http://127.0.0.1:8080")
@@ -282,7 +437,7 @@ def generate_block_page(incident_id: str, client_ip: str, category: str) -> str:
                 <div>Incident Reference ID: <span class="uuid">{incident_id}</span></div>
                 <div>Origin Node IP: {client_ip}</div>
                 <div>Scrubbing Posture: ACTIVE_BLOCK</div>
-                <div>Timestamp Context: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</div>
+                <div>Timestamp Context: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC</div>
             </div>
         </div>
     </body>
@@ -326,7 +481,7 @@ def log_incident_to_db(event_data: Dict[str, Any]):
     query = """
         INSERT INTO security_events 
         (incident_id, timestamp, source_ip, user_agent, target_uri, malicious_payload, threat_category, mitigation_action)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """
     args = (
         event_data['incident_id'],
@@ -341,7 +496,6 @@ def log_incident_to_db(event_data: Dict[str, Any]):
     success = execute_db(query, args)
     if not success:
         print("[CRITICAL] Database Persistence Failure inside log_incident_to_db")
-
 # ─── WAF INSPECTION INTERCEPTOR MIDDLEWARE ───────────────────────────
 @app.middleware("http")
 async def inspect_and_proxy_traffic(request: Request, call_next):
@@ -355,7 +509,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         bg_tasks = BackgroundTasks()
         bg_tasks.add_task(log_incident_to_db, {
             "incident_id": incident_id,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "source_ip": client_ip,
             "user_agent": user_agent,
             "target_uri": target_uri,
@@ -401,7 +555,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         
         event_log = {
             "incident_id": incident_id,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "source_ip": client_ip,
             "user_agent": user_agent,
             "target_uri": target_uri,
@@ -414,7 +568,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         if matched_rule:
             rule_id = matched_rule['rule_id']
             # Dispatch async increment helper
-            await run_in_threadpool(execute_db, "UPDATE rules SET blocks_count = blocks_count + 1 WHERE rule_id = %s", (rule_id,))
+            await run_in_threadpool(execute_db, "UPDATE rules SET blocks_count = blocks_count + 1 WHERE rule_id = ?", (rule_id,))
             
         bg_tasks = BackgroundTasks()
         bg_tasks.add_task(log_incident_to_db, event_log)
@@ -493,7 +647,6 @@ async def get_logo():
     except Exception as e:
         print(f"[ERROR] Failed to serve logo: {e}")
     raise HTTPException(status_code=404, detail="Logo asset not found")
-
 # ─── REST TELEMETRY ENDPOINT FOR DASHBOARD INTERFACES ───────────────
 def fetch_telemetry_data():
     """Generates complete telemetry bundle using standard generic DB helper."""
@@ -529,7 +682,10 @@ def fetch_telemetry_data():
         rules = []
         
     # Get active db type for stats display
-    _, db_type = get_db_connection()
+    if FIREBASE_ENABLED and db:
+        db_type = "FIREBASE"
+    else:
+        db_type = "SQLITE"
 
     return {
         "metrics": {
@@ -542,7 +698,7 @@ def fetch_telemetry_data():
             "posture": GLOBAL_POSTURE,
             "upstream_url": UPSTREAM_SERVER_URL,
             "rate_limit": RATE_LIMIT_THRESHOLD,
-            "db_type": db_type.upper()
+            "db_type": db_type
         },
         "incidents": incidents,
         "rules": rules
@@ -605,7 +761,7 @@ async def create_rule(rule: RuleCreate):
     
     query = """
         INSERT INTO rules (rule_id, identifier, pattern, action, category, is_active, blocks_count, severity, description)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     args = (rule_id, rule.identifier, pattern, rule.action, rule.category, 1, 0, rule.severity, rule.description)
     
@@ -621,7 +777,7 @@ async def create_rule(rule: RuleCreate):
 async def toggle_rule(rule_id: str, payload: ToggleRuleRequest):
     """Enables or disables an active inspection signature rule."""
     is_active_val = 1 if payload.is_active else 0
-    query = "UPDATE rules SET is_active = %s WHERE rule_id = %s"
+    query = "UPDATE rules SET is_active = ? WHERE rule_id = ?"
     success = await run_in_threadpool(execute_db, query, (is_active_val, rule_id))
     if not success:
         raise HTTPException(status_code=500, detail="Failed to toggle ruleset activity profile.")
@@ -636,7 +792,7 @@ async def delete_rule(rule_id: str):
     if rule_id in ["sql-core-01", "xss-scrutiny-01", "rfi-blocker-01"]:
         raise HTTPException(status_code=403, detail="Forbidden: System default signature rulesets cannot be deleted.")
         
-    query = "DELETE FROM rules WHERE rule_id = %s"
+    query = "DELETE FROM rules WHERE rule_id = ?"
     success = await run_in_threadpool(execute_db, query, (rule_id,))
     if not success:
         raise HTTPException(status_code=500, detail="Failed to wipe rule from database registry.")
@@ -655,7 +811,7 @@ async def update_mitigation_posture(payload: PostureUpdate):
     if payload.posture not in ["Monitor Only", "Standard Posture", "Under Attack"]:
         raise HTTPException(status_code=400, detail="Invalid posture specification")
         
-    query = "UPDATE mitigation_state SET posture = %s WHERE id = 'global'"
+    query = "UPDATE mitigation_state SET posture = ? WHERE id = 'global'"
     success = await run_in_threadpool(execute_db, query, (payload.posture,))
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update posture parameter in database settings.")
@@ -680,3 +836,69 @@ async def test_sandbox(payload: SandboxTestRequest):
         return {"match": False}
     except Exception as err:
         return {"match": False, "error": str(err)}
+# ─── LIVE STREAMING ENDPOINT (Server-Sent Events) ───────────────────────────────
+from fastapi.responses import StreamingResponse
+import json
+
+@app.get("/api/v1/stream")
+async def live_stream():
+    """Server-Sent Events endpoint for real-time telemetry streaming."""
+    async def event_generator():
+        while True:
+            try:
+                data = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "metrics": LIVE_STATS,
+                    "posture": GLOBAL_POSTURE,
+                    "active_rules": len(ACTIVE_RULES_CACHE)
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+                await asyncio.sleep(2)
+            except Exception:
+                await asyncio.sleep(5)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ─── ENHANCED TELEMETRY ENDPOINT ───────────────────────────────────────────────
+@app.get("/api/v1/telemetry/live")
+async def live_telemetry():
+    """Returns current live statistics for dashboard widgets."""
+    return {
+        "cpu_percent": round(LIVE_STATS.get("cpu_percent", 0), 1),
+        "memory_mb": LIVE_STATS.get("memory_mb", 0),
+        "requests_per_second": round(LIVE_STATS.get("requests_per_second", 0), 2),
+        "active_rules": len(ACTIVE_RULES_CACHE),
+        "posture": GLOBAL_POSTURE,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+# ─── IP BLACKLIST MANAGEMENT ───────────────────────────────────────────────────
+class IPBlacklistRequest(BaseModel):
+    ip_address: str
+    reason: str = "Manual block"
+    duration_hours: int = 24
+
+IP_BLACKLIST = set()
+
+def logConsole(message: str):
+    """Internal logging helper."""
+    print(f"[{datetime.now(timezone.utc).isoformat()}] {message}")
+
+@app.post("/api/v1/blacklist")
+async def add_to_blacklist(request: IPBlacklistRequest):
+    """Adds an IP to the runtime blacklist."""
+    IP_BLACKLIST.add(request.ip_address)
+    logConsole(f"IP_BLACKLIST: Added {request.ip_address} - {request.reason}")
+    return {"status": "success", "message": f"IP {request.ip_address} blacklisted"}
+
+@app.get("/api/v1/blacklist")
+async def get_blacklist():
+    """Returns current blacklisted IPs."""
+    return {"blacklisted_ips": list(IP_BLACKLIST)}
+
+@app.delete("/api/v1/blacklist/{ip}")
+async def remove_from_blacklist(ip: str):
+    """Removes an IP from the blacklist."""
+    IP_BLACKLIST.discard(ip)
+    return {"status": "success", "message": f"IP {ip} removed from blacklist"}

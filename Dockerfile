@@ -1,8 +1,5 @@
 FROM python:3.11-slim
 
-# Install MariaDB development headers/tools if needed by mysql-connector
-RUN apt-get update && apt-get install -y default-libmysqlclient-dev build-essential && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 COPY requirements.txt .

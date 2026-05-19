@@ -1,39 +1,19 @@
 version: '3.8'
 
 services:
-  db:
-    image: mariadb:10.11
-    restart: always
-    environment:
-      MARIADB_ROOT_PASSWORD: your_secure_password
-      MARIADB_DATABASE: security_gateway
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   waf:
     build: .
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - DB_HOST=db
-      - DB_USER=prado
-      - DB_PASSWORD=pradyu2916
-      - DB_NAME=security_gateway
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
       - UPSTREAM_SERVER_URL=http://upstream:8080
     depends_on:
-      db:
-        condition: service_healthy
+      - upstream
     volumes:
-      - ./:/app
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
 
   upstream:
     build:
@@ -44,6 +24,3 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-
-volumes:
-  db_data:
