@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <!-- Stable R128 Three.js for outstanding 3D holographic globe -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <style>
@@ -507,6 +508,45 @@
 
     <!-- TAB 2: THREAT INTEL / FORENSIC LOG -->
     <div id="tab-threat-intel" class="tab-content tab-animate hidden space-y-6">
+        <!-- Attack Vector Analytics Panel -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 glass-panel rounded-xl p-6 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-headline-md text-white text-lg">Attack Vector Analytics</h3>
+                    <span class="text-[10px] font-code-block text-primary-container uppercase tracking-widest">Live SIEM Metadata</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="threat-chart"></canvas>
+                </div>
+            </div>
+            <div class="glass-panel rounded-xl p-6 space-y-4">
+                <h3 class="font-headline-md text-white text-lg">Risk Summary</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded border-l-4 border-error">
+                        <div>
+                            <p class="text-[10px] text-white/40 uppercase font-code-block">Critical Threats</p>
+                            <p id="summary-critical" class="text-2xl font-bold text-white">0</p>
+                        </div>
+                        <span class="material-symbols-outlined text-error">gpp_maybe</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded border-l-4 border-amber-400">
+                        <div>
+                            <p class="text-[10px] text-white/40 uppercase font-code-block">Flagged Events</p>
+                            <p id="summary-flagged" class="text-2xl font-bold text-white">0</p>
+                        </div>
+                        <span class="material-symbols-outlined text-amber-400">flag</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-white/5 rounded border-l-4 border-primary-container">
+                        <div>
+                            <p class="text-[10px] text-white/40 uppercase font-code-block">Clean Sessions</p>
+                            <p id="summary-clean" class="text-2xl font-bold text-white">1.5k</p>
+                        </div>
+                        <span class="material-symbols-outlined text-primary-container">verified_user</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Advanced Search & Filter HUD -->
         <div class="glass-panel rounded-xl p-6 shadow-[0_0_15px_rgba(32,148,139,0.1)] flex flex-wrap items-end gap-6">
             <div class="flex flex-col gap-2 min-w-[200px]">
@@ -603,9 +643,16 @@
                             <input id="rule-identifier" required class="w-full bg-transparent border-b border-primary-container/50 focus:border-primary-container focus:ring-0 text-primary font-code-block p-2 outline-none transition-all" type="text" value="X-CSRF-Bypass-Attempt"/>
                         </div>
                         <div>
-                            <label class="font-code-block text-ui-label-sm text-on-surface-variant block mb-2 uppercase">Regex Logic Pattern</label>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="font-code-block text-ui-label-sm text-on-surface-variant uppercase">Regex Logic Pattern</label>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="insertRegexHint('(?:)')" class="text-[9px] font-code-block bg-white/5 px-1.5 py-0.5 rounded hover:bg-white/10 text-primary-container">Group</button>
+                                    <button type="button" onclick="insertRegexHint('.*?')" class="text-[9px] font-code-block bg-white/5 px-1.5 py-0.5 rounded hover:bg-white/10 text-primary-container">Wildcard</button>
+                                    <button type="button" onclick="insertRegexHint('\\b')" class="text-[9px] font-code-block bg-white/5 px-1.5 py-0.5 rounded hover:bg-white/10 text-primary-container">Boundary</button>
+                                </div>
+                            </div>
                             <div class="relative">
-                                <textarea id="rule-pattern" oninput="runSandboxTest()" required class="w-full bg-black/40 border border-[#20948b]/15 rounded-sm font-code-block text-code-block text-primary-fixed p-4 focus:border-primary-container outline-none resize-none" rows="3">/(?:admin|root|system).*?(?:rm|sh|bash|chmod|nc)/gi</textarea>
+                                <textarea id="rule-pattern" oninput="runSandboxTest()" required class="w-full bg-black/40 border border-[#20948b]/15 rounded-sm font-code-block text-code-block text-primary-fixed p-4 focus:border-primary-container outline-none resize-none transition-all focus:shadow-[0_0_15px_rgba(32,148,139,0.2)]" rows="3">/(?:admin|root|system).*?(?:rm|sh|bash|chmod|nc)/gi</textarea>
                                 <div class="absolute top-2 right-2 flex gap-1">
                                     <div class="w-2 h-2 rounded-full bg-white/20"></div>
                                     <div class="w-2 h-2 rounded-full bg-white/20"></div>
@@ -821,6 +868,7 @@
     let filteredIncidents = [];
     let sandboxTimeout = null;
     let globeInitialized = false;
+    let threatChart = null;
 
     // Toast Notification Controller
     function showToast(title, body, icon = 'info') {
@@ -1062,6 +1110,14 @@
 
     // Refresh telemetry and metrics
     function updateMetricsDOM() {
+        updateAnalyticsChart();
+
+        const summaryCritical = document.getElementById('summary-critical');
+        if (summaryCritical) summaryCritical.textContent = telemetryData.metrics.total_blocked || 0;
+
+        const summaryFlagged = document.getElementById('summary-flagged');
+        if (summaryFlagged) summaryFlagged.textContent = (telemetryData.incidents || []).filter(i => i.mitigation_action === 'Flagged').length;
+
         const headerStatus = document.getElementById('header-status');
         const posture = telemetryData.metrics.posture || 'Standard Posture';
         headerStatus.textContent = posture.toUpperCase();
@@ -1768,6 +1824,76 @@ Connection: keep-alive`;
         dlAnchorElem.setAttribute("download", `KALKI_WAF_TELEMETRY_${new Date().toISOString().slice(0,10)}.json`);
         dlAnchorElem.click();
         logConsole("EXPORT_TELEMETRY: serializing incident log registers to disk.");
+    }
+
+    function updateAnalyticsChart() {
+        const ctx = document.getElementById('threat-chart');
+        if (!ctx) return;
+
+        const data = {
+            labels: ['SQL Injection', 'XSS Attempt', 'Anomalous', 'Other'],
+            datasets: [{
+                label: 'Threat Count',
+                data: [
+                    telemetryData.metrics.sqli_count || 0,
+                    telemetryData.metrics.xss_count || 0,
+                    telemetryData.metrics.anomalous_count || 0,
+                    0
+                ],
+                backgroundColor: [
+                    'rgba(255, 90, 9, 0.6)',
+                    'rgba(255, 90, 9, 0.4)',
+                    'rgba(245, 158, 11, 0.4)',
+                    'rgba(32, 148, 139, 0.4)'
+                ],
+                borderColor: [
+                    'rgba(255, 90, 9, 1)',
+                    'rgba(255, 90, 9, 1)',
+                    'rgba(245, 158, 11, 1)',
+                    'rgba(32, 148, 139, 1)'
+                ],
+                borderWidth: 1
+            }]
+        };
+
+        if (threatChart) {
+            threatChart.data = data;
+            threatChart.update();
+        } else {
+            threatChart = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: 'rgba(255, 255, 255, 0.4)', font: { family: 'Space Mono', size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: 'rgba(255, 255, 255, 0.4)', font: { family: 'Space Mono', size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    }
+
+    function insertRegexHint(hint) {
+        const area = document.getElementById('rule-pattern');
+        const start = area.selectionStart;
+        const end = area.selectionEnd;
+        const text = area.value;
+        area.value = text.substring(0, start) + hint + text.substring(end);
+        area.focus();
+        area.selectionStart = area.selectionEnd = start + hint.length;
+        runSandboxTest();
     }
 
     function escapeHtml(text) {
