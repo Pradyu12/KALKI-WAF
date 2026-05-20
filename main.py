@@ -43,8 +43,6 @@ except ImportError:
         PeriodicExportingMetricsExporter = None
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
-from cryptography.fernet import Fernet
-import jwt
 
 # ─── FIREBASE CONFIGURATION ────────────────────────────────────────────────
 # Uses environment variables for Firebase credentials
@@ -435,7 +433,6 @@ app.add_middleware(
 )
 
 # ─── REQUEST CONNECTION COUNTER ─────────────────────────────────────────
-_request_count: int = 0
 
 @app.middleware("http")
 async def count_request(request: Request, call_next):
@@ -582,36 +579,6 @@ async def check_country_block(ip: str) -> bool:
     country = get_country_code(ip)
     return country in BLOCKED_COUNTRIES
 
-# ─── JWT TOKEN VALIDATION ─────────────────────────────────────────────────────
-JWT_SECRET = os.getenv("JWT_SECRET", "")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "")
-JWT_ISSUER = os.getenv("JWT_ISSUER", "")
-
-async def validate_jwt_token(request: Request) -> Optional[Dict[str, Any]]:
-    """Validate JWT token from Authorization header."""
-    if not JWT_SECRET:
-        return None
-    
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return None
-    
-    token = auth_header[7:]
-    try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=[JWT_ALGORITHM],
-            audience=JWT_AUDIENCE if JWT_AUDIENCE else None,
-            issuer=JWT_ISSUER if JWT_ISSUER else None,
-            options={"require_exp": True}
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
 
 # ─── GRAPHQL QUERY DEPTH LIMITER ────────────────────────────────────────────
 GRAPHQL_MAX_DEPTH = int(os.getenv("GRAPHQL_MAX_DEPTH", "5"))
@@ -772,12 +739,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
     start_time = time.time()
     ACTIVE_CONNECTIONS.inc()
     
-    # ── JWT Token Validation ───────────────────────────────────────────────
-    jwt_payload = await validate_jwt_token(request)
-    if JWT_SECRET and not jwt_payload:
-        html_payload = generate_block_page(str(uuid.uuid4()), client_ip, "Unauthorized")
-        return HTMLResponse(content=html_payload, status_code=401)
-    
+
     # ── GeoIP Country Blocking ─────────────────────────────────────────────
     if await check_country_block(client_ip):
         blocked_country = get_country_code(client_ip)
@@ -797,7 +759,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
     
     # ── Rate-limit: applied FIRST, before any path bypass ───────────────────
-    if not await async_check_rate_limit(client_ip):
+    if not await check_rate_limit(client_ip):
         incident_id = str(uuid.uuid4())
         BLOCKED_COUNT.labels(category="rate_limit").inc()
         bg_tasks = BackgroundTasks()
@@ -852,8 +814,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
                     html_payload = generate_block_page(incident_id, client_ip, "GraphQL")
                     return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
                 # Restore body for downstream
-                request._receive = lambda: asyncio.Future()
-                request._receive.set_result({"type": "http.request", "body": body})
+                request._body = body
         except Exception:
             pass
     
