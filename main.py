@@ -3,19 +3,48 @@ import uuid
 import asyncio
 from datetime import datetime, timezone
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 from urllib.parse import unquote
+import json
+import ipaddress
 
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response, BackgroundTasks, HTTPException
+from fastapi import FastAPI, Request, Response, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.routing import APIRoute
 import httpx
 import psutil
 import sqlite3
 from pydantic import BaseModel, Field
+
+try:
+    import redis.asyncio as redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    redis = None
+    REDIS_AVAILABLE = False
+    print("[WARN] redis.asyncio not available - rate limiting will use in-memory fallback")
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+import geoip2.database
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider as OTelMeterProvider
+try:
+    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricsExporter
+except ImportError:
+    try:
+        from opentelemetry.sdk.metrics.export import MetricExporter as PeriodicExportingMetricsExporter
+    except ImportError:
+        PeriodicExportingMetricsExporter = None
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from cryptography.fernet import Fernet
+import jwt
 
 # ─── FIREBASE CONFIGURATION ────────────────────────────────────────────────
 # Uses environment variables for Firebase credentials
@@ -375,7 +404,11 @@ async def _metrics_sampler():
 # ─── LIFESPAN MANAGED APPLICATION STARTUP ────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _metrics_task
+    global _metrics_task, redis_client
+    # Initialize GeoIP
+    await init_geoip()
+    # Initialize Redis connection
+    redis_client = await get_redis_client()
     # Initialize DB (creates sqlite file or firebase collections)
     init_db()
     # Cache compilation
@@ -387,6 +420,8 @@ async def lifespan(app: FastAPI):
     yield
     if _metrics_task:
         _metrics_task.cancel()
+    if redis_client:
+        await redis_client.close()
     await http_client.aclose()
 
 app = FastAPI(title="Kalki WAF Core Engine", version="1.0.0", lifespan=lifespan)
@@ -444,33 +479,263 @@ def generate_block_page(incident_id: str, client_ip: str, category: str) -> str:
     </html>
     """
 
-# ─── IN-MEMORY RATE LIMITER ──────────────────────────────────────────
-request_history = {}
-RATE_LIMIT_THRESHOLD = 50 # requests
-RATE_LIMIT_WINDOW = 10 # seconds
+# ─── PROMETHEUS METRICS ───────────────────────────────────────────────────────
+REQUEST_COUNT = Counter("waf_requests_total", "Total requests processed", ["method", "path", "status"])
+BLOCKED_COUNT = Counter("waf_blocked_total", "Total blocked requests", ["category"])
+REQUEST_DURATION = Histogram("waf_request_duration_seconds", "Request latency")
+ACTIVE_CONNECTIONS = Gauge("waf_active_connections", "Current active connections")
+UPSTREAM_TIMEOUTS = Counter("waf_upstream_timeouts_total", "Upstream request timeouts")
 
-def check_rate_limit(client_ip: str) -> bool:
-    current_time = time.time()
-    
-    if client_ip not in request_history:
-        request_history[client_ip] = []
-        
-    # Clean old requests outside the window
-    request_history[client_ip] = [req_time for req_time in request_history[client_ip] 
-                                  if current_time - req_time < RATE_LIMIT_WINDOW]
-    
-    # Stricter Rate Limiting under attack posture
+# ─── RATE LIMITING CONFIG ──────────────────────────────────────────────────────
+RATE_LIMIT_THRESHOLD = 50  # requests
+RATE_LIMIT_WINDOW = 10  # seconds
+request_history = {}
+
+# ─── REDIS-BACKED DISTRIBUTED RATE LIMITER ─────────────────────────────────
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+redis_client: 'Optional[redis.Redis]' = None
+
+async def get_redis_client():
+    """Get or create Redis connection for distributed rate limiting."""
+    global redis_client
+    if redis_client is None:
+        if not REDIS_AVAILABLE:
+            print("[WARN] redis.asyncio package not installed - using in-memory rate limiting")
+            return None
+        try:
+            redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+            await redis_client.ping()
+        except Exception as e:
+            print(f"[WARN] Redis unavailable, falling back to in-memory: {e}")
+            redis_client = None
+    return redis_client
+
+async def check_rate_limit(client_ip: str) -> bool:
+    """Distributed rate limiting using Redis with sliding window algorithm."""
     limit = RATE_LIMIT_THRESHOLD
     if GLOBAL_POSTURE == "Under Attack":
-        limit = 10 # very aggressive rate limit
-        
-    # Check if threshold is breached
+        limit = 10
+    
+    # Try Redis first
+    try:
+        r = await get_redis_client()
+        if r:
+            key = f"rate_limit:{client_ip}"
+            now = int(time.time())
+            # Sliding window using Redis sorted set
+            pipeline = r.pipeline()
+            pipeline.zremrangebyscore(key, 0, now - RATE_LIMIT_WINDOW)
+            pipeline.zcard(key)
+            pipeline.zadd(key, {str(now): now})
+            pipeline.expire(key, RATE_LIMIT_WINDOW)
+            results = await pipeline.execute()
+            
+            request_count = results[1]
+            if request_count >= limit:
+                return False
+            return True
+    except Exception:
+        pass
+    
+    # Fallback to in-memory rate limiting
+    current_time = time.time()
+    if client_ip not in request_history:
+        request_history[client_ip] = []
+    request_history[client_ip] = [req_time for req_time in request_history[client_ip] 
+                                  if current_time - req_time < RATE_LIMIT_WINDOW]
     if len(request_history[client_ip]) >= limit:
-        return False # Rate limit exceeded
-        
-    # Log new request
+        return False
     request_history[client_ip].append(current_time)
-    return True # Traffic allowed
+    return True
+
+# ─── GEOIP2 COUNTRY BLOCKING ────────────────────────────────────────────────
+GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "GeoLite2-Country.mmdb")
+geoip_reader: Optional[geoip2.database.Reader] = None
+BLOCKED_COUNTRIES: Set[str] = set(os.getenv("BLOCKED_COUNTRIES", "").split(",")) if os.getenv("BLOCKED_COUNTRIES") else set()
+
+async def init_geoip():
+    """Initialize GeoIP2 database reader."""
+    global geoip_reader
+    try:
+        if os.path.exists(GEOIP_DB_PATH):
+            geoip_reader = geoip2.database.Reader(GEOIP_DB_PATH)
+            print(f"[INFO] GeoIP2 database loaded from {GEOIP_DB_PATH}")
+        else:
+            print(f"[WARN] GeoIP2 database not found at {GEOIP_DB_PATH}")
+    except Exception as e:
+        print(f"[WARN] GeoIP2 initialization failed: {e}")
+
+def get_country_code(ip: str) -> Optional[str]:
+    """Get ISO country code from IP address."""
+    if geoip_reader:
+        try:
+            response = geoip_reader.country(ip)
+            return response.country.iso_code
+        except Exception:
+            pass
+    return None
+
+async def check_country_block(ip: str) -> bool:
+    """Check if IP is from blocked country. Returns True if blocked."""
+    if not BLOCKED_COUNTRIES:
+        return False
+    country = get_country_code(ip)
+    return country in BLOCKED_COUNTRIES
+
+# ─── JWT TOKEN VALIDATION ─────────────────────────────────────────────────────
+JWT_SECRET = os.getenv("JWT_SECRET", "")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "")
+JWT_ISSUER = os.getenv("JWT_ISSUER", "")
+
+async def validate_jwt_token(request: Request) -> Optional[Dict[str, Any]]:
+    """Validate JWT token from Authorization header."""
+    if not JWT_SECRET:
+        return None
+    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    
+    token = auth_header[7:]
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            audience=JWT_AUDIENCE if JWT_AUDIENCE else None,
+            issuer=JWT_ISSUER if JWT_ISSUER else None,
+            options={"require_exp": True}
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+# ─── GRAPHQL QUERY DEPTH LIMITER ────────────────────────────────────────────
+GRAPHQL_MAX_DEPTH = int(os.getenv("GRAPHQL_MAX_DEPTH", "5"))
+
+def check_graphql_depth(query: str) -> bool:
+    """Check if GraphQL query exceeds max depth. Returns True if valid."""
+    if not query:
+        return True
+    
+    # Simple depth calculation based on nesting braces
+    max_depth = 0
+    current_depth = 0
+    in_string = False
+    in_argument = False
+    
+    for char in query:
+        if char == '"' and (not in_string or query[max(0, query.index(char)-1)] != '\\'):
+            in_string = not in_string
+        elif not in_string:
+            if char == '(':
+                in_argument = True
+                current_depth += 1
+            elif char == ')':
+                current_depth = max(0, current_depth - 1)
+                in_argument = False
+            elif char == '{' and not in_argument:
+                current_depth += 1
+                max_depth = max(max_depth, current_depth)
+            elif char == '}':
+                current_depth = max(0, current_depth - 1)
+    
+    return max_depth <= GRAPHQL_MAX_DEPTH
+
+# ─── CIRCUIT BREAKER FOR UPSTREAM ───────────────────────────────────────────
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5, timeout: float = 60.0):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.failure_count = 0
+        self.last_failure_time: Optional[float] = None
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+    
+    async def call(self, func, *args, **kwargs):
+        if self.state == "OPEN":
+            if self.last_failure_time and (time.time() - self.last_failure_time) > self.timeout:
+                self.state = "HALF_OPEN"
+            else:
+                raise HTTPException(status_code=503, detail="Circuit breaker OPEN - upstream unavailable")
+        
+        try:
+            result = await func(*args, **kwargs)
+            self.on_success()
+            return result
+        except Exception as e:
+            self.on_failure()
+            raise e
+    
+    def on_success(self):
+        self.failure_count = 0
+        self.state = "CLOSED"
+    
+    def on_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = "OPEN"
+
+circuit_breaker = CircuitBreaker()
+
+# ─── WEBSOCKET CONNECTION MANAGER ───────────────────────────────────────────
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.incident_queue: asyncio.Queue = asyncio.Queue()
+    
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+    
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+    
+    async def broadcast_incident(self, incident: Dict[str, Any]):
+        data = json.dumps(incident)
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_text(data)
+            except Exception:
+                self.disconnect(connection)
+
+manager = ConnectionManager()
+
+@app.websocket("/api/v1/ws/incidents")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time incident streaming."""
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+async def broadcast_incident(incident: Dict[str, Any]):
+    """Broadcast incident to all WebSocket connections."""
+    await manager.broadcast_incident(incident)
+
+# ─── PROMETHEUS METRICS ENDPOINT ────────────────────────────────────────────
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
+
+# ─── OPEN TELEMETRY INITIALIZATION ─────────────────────────────────────────
+resource = Resource(attributes={"service.name": "kalki-waf"})
+trace.set_tracer_provider(TracerProvider(resource=resource))
+tracer = trace.get_tracer(__name__)
+
+FastAPIInstrumentor.instrument_app(app, tracer_provider=trace.get_tracer_provider())
 
 # ─── GLOBAL HTTP CLIENT ────────────────────────────────────────────────
 http_client = httpx.AsyncClient()
@@ -502,10 +767,39 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
     client_ip = request.client.host if request.client else "127.0.0.1"
     user_agent = request.headers.get("user-agent", "Unknown")
     target_uri = str(request.url.path)
-
-    # ── Rate-limit: applied FIRST, before any path bypass ──────────────
-    if not check_rate_limit(client_ip):
+    
+    # ── Prometheus metrics tracking ───────────────────────────────────────
+    start_time = time.time()
+    ACTIVE_CONNECTIONS.inc()
+    
+    # ── JWT Token Validation ───────────────────────────────────────────────
+    jwt_payload = await validate_jwt_token(request)
+    if JWT_SECRET and not jwt_payload:
+        html_payload = generate_block_page(str(uuid.uuid4()), client_ip, "Unauthorized")
+        return HTMLResponse(content=html_payload, status_code=401)
+    
+    # ── GeoIP Country Blocking ─────────────────────────────────────────────
+    if await check_country_block(client_ip):
+        blocked_country = get_country_code(client_ip)
         incident_id = str(uuid.uuid4())
+        bg_tasks = BackgroundTasks()
+        bg_tasks.add_task(log_incident_to_db, {
+            "incident_id": incident_id,
+            "timestamp": datetime.now(timezone.utc),
+            "source_ip": client_ip,
+            "user_agent": user_agent,
+            "target_uri": target_uri,
+            "malicious_payload": f"GEO_BLOCKED:{blocked_country}",
+            "threat_category": "GeoBlock",
+            "mitigation_action": "Blocked",
+        })
+        html_payload = generate_block_page(incident_id, client_ip, "GeoBlock")
+        return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
+    
+    # ── Rate-limit: applied FIRST, before any path bypass ───────────────────
+    if not await async_check_rate_limit(client_ip):
+        incident_id = str(uuid.uuid4())
+        BLOCKED_COUNT.labels(category="rate_limit").inc()
         bg_tasks = BackgroundTasks()
         bg_tasks.add_task(log_incident_to_db, {
             "incident_id": incident_id,
@@ -519,12 +813,50 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         })
         html_payload = generate_block_page(incident_id, client_ip, "Anomalous")
         return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
-
+    
     # Bypass WAF inspection for internal REST telemetry endpoints, sandbox testing,
     # dashboard, and brand assets. Rate-limiting is handled above.
     if request.url.path.startswith("/api/v1/") or request.url.path in ["/", "/dashboard", "/kalki_waf_logo.png"]:
-        return await call_next(request)
-
+        try:
+            response = await call_next(request)
+            duration = time.time() - start_time
+            REQUEST_DURATION.observe(duration)
+            REQUEST_COUNT.labels(method=request.method, path=target_uri, status=str(response.status_code)).inc()
+            ACTIVE_CONNECTIONS.dec()
+            return response
+        except Exception as e:
+            ACTIVE_CONNECTIONS.dec()
+            raise e
+    
+    # ── GraphQL Depth Limiting ─────────────────────────────────────────────
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type and request.method == "POST":
+        try:
+            body = await request.body()
+            body_str = body.decode('utf-8', errors='ignore')
+            json_body = json.loads(body_str)
+            if "query" in json_body:
+                if not check_graphql_depth(json_body["query"]):
+                    incident_id = str(uuid.uuid4())
+                    bg_tasks = BackgroundTasks()
+                    bg_tasks.add_task(log_incident_to_db, {
+                        "incident_id": incident_id,
+                        "timestamp": datetime.now(timezone.utc),
+                        "source_ip": client_ip,
+                        "user_agent": user_agent,
+                        "target_uri": target_uri,
+                        "malicious_payload": "GRAPHQL_DEPTH_EXCEEDED",
+                        "threat_category": "GraphQL",
+                        "mitigation_action": "Blocked",
+                    })
+                    html_payload = generate_block_page(incident_id, client_ip, "GraphQL")
+                    return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
+                # Restore body for downstream
+                request._receive = lambda: asyncio.Future()
+                request._receive.set_result({"type": "http.request", "body": body})
+        except Exception:
+            pass
+    
     # 2. Collate Inspectable Attack Surfaces
     query_params = unquote(str(request.url.query), encoding="utf-8", errors="replace")
     body_payload = b""
@@ -532,11 +864,11 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         body_payload = await request.body()
     
     inspectable_string = f"{query_params} {body_payload.decode('utf-8', errors='ignore')}"
-
+    
     # 3. Evaluate Inspection Engine against Loaded Rules
     detected_threat = None
     matched_rule = None
-
+    
     for rule in ACTIVE_RULES_CACHE:
         try:
             if rule['compiled_regex'].search(inspectable_string):
@@ -545,10 +877,11 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
                 break
         except Exception as e:
             print(f"[ERROR] Regex matching error on rule {rule['identifier']}: {e}")
-
+    
     # 3. Handle Mitigation Logic if Vector Confirmed
     if detected_threat:
         incident_id = str(uuid.uuid4())
+        BLOCKED_COUNT.labels(category=detected_threat).inc()
         
         # If in Monitor Only, action is Flagged. Otherwise, Blocked.
         action = "Flagged" if GLOBAL_POSTURE == "Monitor Only" else "Blocked"
@@ -564,10 +897,18 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
             "mitigation_action": action
         }
         
+        # Broadcast to WebSocket clients
+        await broadcast_incident({
+            "incident_id": incident_id,
+            "source_ip": client_ip,
+            "threat_category": detected_threat,
+            "action": action,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
         # Increment rule block count in DB asynchronously
         if matched_rule:
             rule_id = matched_rule['rule_id']
-            # Dispatch async increment helper
             await run_in_threadpool(execute_db, "UPDATE rules SET blocks_count = blocks_count + 1 WHERE rule_id = ?", (rule_id,))
             
         bg_tasks = BackgroundTasks()
@@ -575,13 +916,17 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         
         if action == "Blocked":
             html_payload = generate_block_page(incident_id, client_ip, detected_threat)
+            duration = time.time() - start_time
+            REQUEST_DURATION.observe(duration)
+            REQUEST_COUNT.labels(method=request.method, path=target_uri, status="403").inc()
+            ACTIVE_CONNECTIONS.dec()
             return HTMLResponse(content=html_payload, status_code=403, background=bg_tasks)
         
     # 4. Transparent Proxy Execution Flow (Clean or Flagged Traffic)
     upstream_request_url = f"{UPSTREAM_SERVER_URL}{target_uri}"
     if query_params:
         upstream_request_url += f"?{query_params}"
-
+    
     # Strip host header to prevent upstream routing issues
     proxy_headers = dict(request.headers)
     proxy_headers.pop("host", None)
@@ -589,13 +934,14 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
     if detected_threat and GLOBAL_POSTURE == "Monitor Only":
         proxy_headers["X-WAF-Flagged"] = "True"
         proxy_headers["X-WAF-Threat-Category"] = detected_threat
-
+    
     bg_tasks = BackgroundTasks()
     if detected_threat:
         bg_tasks.add_task(log_incident_to_db, event_log)
-
+    
     try:
-        proxy_response = await http_client.request(
+        proxy_response = await circuit_breaker.call(
+            http_client.request,
             method=request.method,
             url=upstream_request_url,
             headers=proxy_headers,
@@ -609,14 +955,24 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
         response_headers.pop("content-encoding", None)
         response_headers.pop("transfer-encoding", None)
         response_headers.pop("content-length", None)
-
+        
+        duration = time.time() - start_time
+        REQUEST_DURATION.observe(duration)
+        REQUEST_COUNT.labels(method=request.method, path=target_uri, status=str(proxy_response.status_code)).inc()
+        ACTIVE_CONNECTIONS.dec()
+        
         return Response(
             content=proxy_response.content,
             status_code=proxy_response.status_code,
             headers=response_headers,
             background=bg_tasks if detected_threat else None
         )
+    except HTTPException:
+        ACTIVE_CONNECTIONS.dec()
+        raise
     except httpx.RequestError as exc:
+        UPSTREAM_TIMEOUTS.inc()
+        ACTIVE_CONNECTIONS.dec()
         import sys, traceback as _tb
         _tb.print_exc(file=sys.stderr)
         raise HTTPException(status_code=502, detail=f"Upstream Server Unreachable: {exc}")
