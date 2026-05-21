@@ -537,6 +537,12 @@
                     <p class="text-[var(--text-muted)] text-[11px] font-code-block uppercase tracking-wider">Holographic 3D Inbound Scrubbing Grid</p>
                 </div>
 
+                <!-- Threat Alert Banner -->
+                <div id="alert-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-[60] bg-[var(--accent-crimson)]/90 backdrop-blur text-white px-6 py-2 rounded-full font-code-block text-ui-label-sm shadow-[0_0_20px_var(--accent-crimson)] font-bold flex items-center gap-3 w-max">
+                    <span class="material-symbols-outlined animate-ping text-[18px]">warning</span>
+                    <span>CRITICAL THREAT DETECTED FROM IP <span id="alert-ip" class="text-white/80"></span></span>
+                </div>
+
                 <!-- Three.js Canvas Container -->
                 <div id="globe-container" class="w-full h-80 lg:h-96 flex items-center justify-center relative cursor-grab active:cursor-grabbing">
                     <canvas id="globe-canvas" class="w-full h-full outline-none"></canvas>
@@ -2172,6 +2178,23 @@ filteredIncidents.forEach((incident, index) => {
         if (isThreat) {
             logLine.innerHTML = `[${timestamp}] <span class="text-[var(--accent-crimson)] font-bold">${ip}</span> [${flag}] &rarr; <span class="text-[var(--accent-crimson)]">BLOCKED</span> 🛡️`;
             if (WafAudio.enabled) WafAudio.playTick(); // Play high tick on threats!
+            
+            // Show alert banner
+            const alertBanner = document.getElementById("alert-banner");
+            const alertIp = document.getElementById("alert-ip");
+            if (alertBanner && alertIp) {
+                alertIp.textContent = ip;
+                alertBanner.classList.remove("hidden");
+                
+                // Clear any existing timeout
+                if (window.alertBannerTimeout) {
+                    clearTimeout(window.alertBannerTimeout);
+                }
+                // Hide after 5 seconds
+                window.alertBannerTimeout = setTimeout(() => {
+                    alertBanner.classList.add("hidden");
+                }, 5000);
+            }
         } else {
             logLine.innerHTML = `[${timestamp}] <span class="text-[var(--accent-cyan)]/80">${ip}</span> [${flag}] &rarr; <span class="text-[var(--accent-emerald)]">PASSED</span> ✅`;
             if (WafAudio.enabled) WafAudio.playLogClick(); // Play lower click on nominal packets
@@ -2511,10 +2534,9 @@ filteredIncidents.forEach((incident, index) => {
                 startR * Math.sin(theta) * Math.cos(phi)
             );
             
-            const packetPoints = [
-                startPt,
-                new THREE.Vector3(0, 0, 0)
-            ];
+            const controlPt = startPt.clone().multiplyScalar(0.5);
+            const curve = new THREE.QuadraticBezierCurve3(startPt, controlPt, new THREE.Vector3(0, 0, 0));
+            const packetPoints = curve.getPoints(32);
             const packetGeo = new THREE.BufferGeometry().setFromPoints(packetPoints);
             const line = new THREE.Line(packetGeo, packetMat);
             scene.add(line);
@@ -2591,10 +2613,11 @@ filteredIncidents.forEach((incident, index) => {
             }
             
             // Rebuild geometry to animate the line flowing towards the center
-            const currentR = 1.45 + (1 - line.progress) * (3.0 - 1.45);
-            const currentPt = line.startPt.clone().normalize().multiplyScalar(currentR);
-            const packetPoints = [ line.startPt, currentPt ];
-            line.mesh.geometry.setFromPoints(packetPoints);
+            const eased = THREE.MathUtils.smoothstep(line.progress, 0, 1);
+            const controlPt = line.startPt.clone().multiplyScalar(0.5);
+            const curve = new THREE.QuadraticBezierCurve3(line.startPt, controlPt, new THREE.Vector3(0, 0, 0));
+            const pts = curve.getPoints(32);
+            line.mesh.geometry.setFromPoints(pts.slice(0, Math.floor(eased * pts.length)));
         });
 
         if (renderer && scene && camera) {
