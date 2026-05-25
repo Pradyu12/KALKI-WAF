@@ -347,8 +347,14 @@ def check_graphql_depth(q: str) -> bool:
     return max_d <= GRAPHQL_MAX_DEPTH
 
 def log_event(data: dict):
-    execute_db("INSERT INTO security_events VALUES (?,?,?,?,?,?,?,?)", (data['incident_id'], data['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), data['source_ip'], data['user_agent'], data['target_uri'], data['malicious_payload'], data['threat_category'], data['mitigation_action']))
-    asyncio.create_task(manager.broadcast(data))
+    ts_str = data['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+    execute_db("INSERT INTO security_events VALUES (?,?,?,?,?,?,?,?)", (data['incident_id'], ts_str, data['source_ip'], data['user_agent'], data['target_uri'], data['malicious_payload'], data['threat_category'], data['mitigation_action']))
+
+    # Convert datetime to string for JSON serialization over WebSockets
+    broadcast_data = data.copy()
+    broadcast_data['timestamp'] = ts_str
+    asyncio.create_task(manager.broadcast(broadcast_data))
+
     if data['mitigation_action'] == 'Blocked':
         asyncio.create_task(notify(data['incident_id'], data['source_ip'], data['threat_category'], "Blocked"))
         h_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')

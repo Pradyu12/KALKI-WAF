@@ -151,8 +151,8 @@ td.dim{color:#8b90a0}
 .tog.on::after{transform:translateX(17px)}
 
 /* Sections */
-.sec{display:none}
-.sec.show{display:contents}
+.sec{display:none;opacity:0;transform:translateY(10px);transition:all .3s ease-out}
+.sec.show{display:block;opacity:1;transform:translateY(0)}
 
 /* Animations */
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.2)}}
@@ -180,12 +180,60 @@ td.dim{color:#8b90a0}
 .toast-body{background:rgba(19,19,24,0.9);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);
   border-left:4px solid #adc6ff;padding:12px 20px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.5);
   display:flex;align-items:center;gap:12px}
+
+/* Modal */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:20px}
+#modal-overlay.show{display:flex}
+.modal-card{background:#131318;border:1px solid rgba(255,255,255,0.1);border-radius:12px;
+  width:100%;max-width:700px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.6);
+  animation:fadein .2s ease-out}
+.modal-body{padding:24px}
+.modal-close{cursor:pointer;color:#8b90a0;transition:color .15s}
+.modal-close:hover{color:#fff}
+.m-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:#414755;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.m-value{font-size:13px;color:#e4e1e8;margin-bottom:16px;word-break:break-all}
+pre.code-block{background:#0d0d12;border:1px solid rgba(255,255,255,0.05);padding:12px;border-radius:6px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:#adc6ff;overflow-x:auto;white-space:pre-wrap}
 </style>
 </head>
 <body>
 <canvas id="bg-canvas"></canvas>
 
 <div id="toast"><div class="toast-body"><span class="material-symbols-outlined" id="toast-icon">info</span><div id="toast-text"></div></div></div>
+
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="card-hd" style="border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div class="card-title"><span class="material-symbols-outlined">analytics</span>Forensic Deep-Dive</div>
+      <span class="material-symbols-outlined modal-close" onclick="closeModal()">close</span>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="m-label">Incident ID</div>
+          <div class="m-value" id="m-iid">—</div>
+          <div class="m-label">Timestamp</div>
+          <div class="m-value" id="m-ts">—</div>
+          <div class="m-label">Threat Category</div>
+          <div id="m-cat" style="margin-bottom:16px"></div>
+        </div>
+        <div>
+          <div class="m-label">Source IP Address</div>
+          <div class="m-value" id="m-ip" style="color:#adc6ff;font-weight:600">—</div>
+          <div class="m-label">Mitigation Action</div>
+          <div id="m-act" style="margin-bottom:16px"></div>
+          <div class="m-label">Target URI</div>
+          <div class="m-value" id="m-uri">—</div>
+        </div>
+      </div>
+      <div class="m-label">User Agent</div>
+      <div class="m-value" id="m-ua">—</div>
+      <div class="m-label">Malicious Payload Buffer</div>
+      <pre class="code-block" id="m-payload">—</pre>
+    </div>
+  </div>
+</div>
 
 <div id="shell">
 <!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
@@ -235,7 +283,27 @@ td.dim{color:#8b90a0}
       </button>
       <span style="font-size:13px;font-weight:600;color:#e4e1e8" id="page-title">Dashboard</span>
     </div>
-    <div style="display:flex;align-items:center;gap:14px">
+    <div style="display:flex;align-items:center;gap:18px">
+      <!-- Notification Center -->
+      <div style="position:relative">
+        <span class="material-symbols-outlined" style="color:#8b90a0;cursor:pointer;font-size:20px" onclick="toggleNotifs()">notifications</span>
+        <div id="notif-dot" style="position:absolute;top:0;right:0;width:8px;height:8px;background:#ff003c;border-radius:50%;border:2px solid #0d0d12;display:none"></div>
+        <div id="notif-panel" style="position:absolute;top:100%;right:0;width:300px;background:#131318;border:1px solid rgba(255,255,255,0.1);
+          border-radius:10px;margin-top:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);display:none;z-index:100">
+          <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:10px;font-family:'JetBrains Mono';color:#8b90a0;text-transform:uppercase">Recent Critical Alerts</div>
+          <div id="notif-list" style="max-height:300px;overflow-y:auto">
+            <div style="padding:20px;text-align:center;color:#414755;font-size:11px">No new alerts</div>
+          </div>
+        </div>
+      </div>
+      <!-- Pulse Heartbeat -->
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg width="40" height="20" viewBox="0 0 40 20" style="opacity:.6">
+          <path id="pulse-path" d="M0,10 L10,10 L12,2 L15,18 L18,10 L40,10" fill="none" stroke="#4edea3" stroke-width="1.5" stroke-dasharray="100" stroke-dashoffset="100">
+            <animate attributeName="stroke-dashoffset" from="100" to="0" dur="2s" repeatCount="indefinite" />
+          </path>
+        </svg>
+      </div>
       <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;
         background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
         font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.06em">
@@ -319,6 +387,13 @@ td.dim{color:#8b90a0}
           <div id="top-ips-list" style="display:flex;flex-direction:column;gap:6px;font-size:11px;font-family:'JetBrains Mono',monospace">
             <!-- Dynamic -->
           </div>
+      </div>
+      <!-- Threat Distribution -->
+      <div class="card" style="padding:16px;flex:1">
+          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <span class="material-symbols-outlined" style="font-size:14px;color:#ffb95f">pie_chart</span>Threat Landscape
+          </div>
+          <canvas id="distChart" style="height:100px"></canvas>
       </div>
       <!-- Posture -->
       <div class="card" style="padding:16px">
@@ -655,14 +730,19 @@ function nav(el){
   const sec=el.dataset.sec;
   document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
   el.classList.add('active');
+
   SECS.forEach(s=>{
     const el2=document.getElementById('sec-'+s);
     el2.classList.remove('show');
-    el2.style.display='none';
+    setTimeout(() => { if(!el2.classList.contains('show')) el2.style.display='none'; }, 300);
   });
+
   const target=document.getElementById('sec-'+sec);
-  target.classList.add('show');
-  target.style.display='contents';
+  setTimeout(() => {
+    target.style.display='block';
+    setTimeout(() => target.classList.add('show'), 10);
+  }, 100);
+
   document.getElementById('page-title').textContent=TITLES[sec];
   if(sec==='rules') { loadRules(); fetchWhitelist(); }
   if(sec==='incidents') { loadIncidents(); fetchBlacklist(); }
@@ -732,7 +812,7 @@ async function updateHealth() {
     } catch(e) {}
 }
 
-let trendChart = null;
+let trendChart = null, distChart = null;
 
 function esc(str) {
     if (!str) return '';
@@ -779,7 +859,7 @@ function renderAnalytics(a, incidents){
     `).join('') || '<div style="color:#414755;text-align:center">No data</div>';
 
     // Trend Chart
-    const ctx = document.getElementById('trendChart').getContext('2d');
+    const ctxTrend = document.getElementById('trendChart').getContext('2d');
     const hourlyData = {};
     incidents.forEach(i => {
         const h = (i.timestamp || '').slice(11, 13);
@@ -789,7 +869,7 @@ function renderAnalytics(a, incidents){
     const values = labels.map(l => hourlyData[l]);
 
     if(trendChart) trendChart.destroy();
-    trendChart = new Chart(ctx, {
+    trendChart = new Chart(ctxTrend, {
         type: 'line',
         data: {
             labels: labels.map(l => l + ':00'),
@@ -813,6 +893,33 @@ function renderAnalytics(a, incidents){
             }
         }
     });
+
+    // Distribution Chart
+    const ctxDist = document.getElementById('distChart').getContext('2d');
+    const catData = {};
+    incidents.forEach(i => {
+        catData[i.threat_category] = (catData[i.threat_category] || 0) + 1;
+    });
+
+    if(distChart) distChart.destroy();
+    distChart = new Chart(ctxDist, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(catData),
+            datasets: [{
+                data: Object.values(catData),
+                backgroundColor: ['#ff003c', '#ffb95f', '#adc6ff', '#4edea3', '#8b90a0'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: { legend: { display: false } }
+        }
+    });
 }
 
 function catTag(cat){
@@ -829,12 +936,15 @@ function actTag(a){
   return `<span class="tag t-allowed">${a}</span>`;
 }
 
+let ALL_INCIDENTS = [];
+
 function renderFeed(incidents){
+  ALL_INCIDENTS = incidents;
   const tb=document.getElementById('live-log');
   if(!tb) return;
   if(!incidents.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#414755;padding:20px">No incidents recorded</td></tr>';return}
   tb.innerHTML=incidents.slice(0,10).map(i=>`
-    <tr>
+    <tr onclick="showIncident('${esc(i.incident_id)}')" style="cursor:pointer">
       <td class="dim">${esc((i.timestamp||'').toString().slice(11,19))}</td>
       <td style="color:#adc6ff">${esc(i.source_ip||'—')}</td>
       <td>${catTag(i.threat_category)}</td>
@@ -958,12 +1068,13 @@ async function loadIncidents(){
   try{
     const d=await api('/api/v1/threat-intel/alerts');
     const inc=d.incidents||[];
+    ALL_INCIDENTS = inc;
     const tb=document.getElementById('inc-table');
     if(!tb) return;
     document.getElementById('inc-count').textContent=inc.length+' total';
     if(!inc.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#414755;padding:20px">No incidents</td></tr>';return}
     tb.innerHTML=inc.map(i=>`
-      <tr>
+      <tr onclick="showIncident('${esc(i.incident_id)}')" style="cursor:pointer">
         <td class="dim" style="font-size:10px">${esc((i.incident_id||'').slice(0,14))}</td>
         <td class="dim">${esc((i.timestamp||'').slice(0,19))}</td>
         <td>${esc(i.source_ip||'—')}</td>
@@ -972,6 +1083,27 @@ async function loadIncidents(){
         <td>${actTag(i.mitigation_action)}</td>
       </tr>`).join('');
   }catch(e){console.error('Incidents:',e)}
+}
+
+function showIncident(id) {
+    const inc = ALL_INCIDENTS.find(i => i.incident_id === id);
+    if(!inc) return;
+
+    document.getElementById('m-iid').textContent = inc.incident_id;
+    document.getElementById('m-ts').textContent = inc.timestamp;
+    document.getElementById('m-ip').textContent = inc.source_ip;
+    document.getElementById('m-uri').textContent = inc.target_uri;
+    document.getElementById('m-ua').textContent = inc.user_agent || 'Unknown';
+    document.getElementById('m-payload').textContent = inc.malicious_payload || 'Empty payload buffer';
+
+    document.getElementById('m-cat').innerHTML = catTag(inc.threat_category);
+    document.getElementById('m-act').innerHTML = actTag(inc.mitigation_action);
+
+    document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('show');
 }
 
 // ─── Sandbox ──────────────────────────────────────────────────────────
@@ -1136,6 +1268,34 @@ function syncPosture(p){
   });
   const dot=document.getElementById('posture-dot');
   dot.style.background=p==='Under Attack'?'#ff003c':p==='Monitor Only'?'#ffb95f':'#4edea3';
+}
+
+function toggleNotifs() {
+    const p = document.getElementById('notif-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('notif-dot').style.display = 'none';
+}
+
+let last_incident_count = 0;
+function updateNotifications(incidents) {
+    if(!incidents.length) return;
+    const list = document.getElementById('notif-list');
+    const criticals = incidents.filter(i => i.mitigation_action === 'Blocked').slice(0, 5);
+
+    if(incidents.length > last_incident_count && last_incident_count !== 0) {
+        document.getElementById('notif-dot').style.display = 'block';
+    }
+    last_incident_count = incidents.length;
+
+    list.innerHTML = criticals.map(i => `
+        <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer" onclick="showIncident('${i.incident_id}'); toggleNotifs()">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span class="tag t-blocked" style="font-size:8px">${i.threat_category}</span>
+                <span style="font-size:9px;color:#414755">${i.timestamp.slice(11,19)}</span>
+            </div>
+            <div style="font-size:11px;color:#e4e1e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.source_ip}</div>
+        </div>
+    `).join('') || '<div style="padding:20px;text-align:center;color:#414755;font-size:11px">No critical alerts</div>';
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────
