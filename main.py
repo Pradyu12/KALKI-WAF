@@ -377,6 +377,22 @@ async def waf_middleware(request: Request, call_next):
     
     if is_ip_whitelisted(ip): return await call_next(request)
     
+    # Bot Protection
+    row_bot = query_db("SELECT value FROM config WHERE key = 'bot_protection'", one=True)
+    if row_bot and row_bot['value'] == 'enabled':
+        if any(bot.lower() in ua.lower() for bot in BAD_BOTS):
+            iid = str(uuid.uuid4())
+            log_event({"incident_id": iid, "timestamp": datetime.now(timezone.utc), "source_ip": ip, "user_agent": ua, "target_uri": path, "malicious_payload": "BAD_BOT_BLOCK", "threat_category": "Bot", "mitigation_action": "Blocked"})
+            BLOCKED_COUNT.labels(category="Bot").inc()
+            return HTMLResponse(content=generate_block_page(iid, ip, "Bot Protection"), status_code=403)
+
+    # Country Block
+    if await check_country_block(ip):
+        iid = str(uuid.uuid4())
+        log_event({"incident_id": iid, "timestamp": datetime.now(timezone.utc), "source_ip": ip, "user_agent": ua, "target_uri": path, "malicious_payload": "COUNTRY_BLOCK", "threat_category": "Geofence", "mitigation_action": "Blocked"})
+        BLOCKED_COUNT.labels(category="Geofence").inc()
+        return HTMLResponse(content=generate_block_page(iid, ip, "Regional Blocking Active"), status_code=403)
+
     # Pre-checks
     if await is_ip_jailed(ip) or await check_abuseipdb(ip):
         iid = str(uuid.uuid4())
@@ -395,7 +411,16 @@ async def waf_middleware(request: Request, call_next):
     # Inspection
     q = unquote(str(request.url.query))
     b = await request.body()
-    inspect = f"{q} {b.decode('utf-8', errors='ignore')}"
+    body_str = b.decode('utf-8', errors='ignore')
+
+    # GraphQL Depth Check
+    if not check_graphql_depth(body_str):
+        iid = str(uuid.uuid4())
+        log_event({"incident_id": iid, "timestamp": datetime.now(timezone.utc), "source_ip": ip, "user_agent": ua, "target_uri": path, "malicious_payload": body_str[:500], "threat_category": "GraphQL", "mitigation_action": "Blocked"})
+        BLOCKED_COUNT.labels(category="GraphQL").inc()
+        return HTMLResponse(content=generate_block_page(iid, ip, "Extreme Query Depth"), status_code=403)
+
+    inspect = f"{q} {body_str}"
     
     threat = None
     for r in ACTIVE_RULES_CACHE:
