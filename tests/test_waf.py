@@ -41,7 +41,7 @@ _orig_reload_rules = _main.reload_rules_cache
 _orig_reload_posture = _main.reload_global_posture
 
 # Mock async rate limiter for testing
-async def _m_check_rate_limit(client_ip: str) -> bool:
+async def _m_check_rate_limit(client_ip: str, path: str = "/") -> bool:
     return True
 
 
@@ -50,9 +50,9 @@ def _m_query(query, args=(), one=False):
     # --- Security-events specific queries must come before the generic
     #     "select count" handler so that WHERE-filtered counts (e.g.
     #     mitigation_action / threat_category) reach the right branch ---
-    if q.startswith("select count(*) as total from security_events"):
+    if q.startswith("select count(*) as total from security_events") or q.startswith("select count(*) as cnt from security_events"):
         total = sum(1 for i in store.incidents)
-        return [{"total": total}] if not one else {"total": total}
+        return [{"total": total, "cnt": total}] if not one else {"total": total, "cnt": total}
     if "from security_events" in q and "where" in q:
         cat = None
         if "threat_category = 'sqli'" in q:
@@ -63,8 +63,8 @@ def _m_query(query, args=(), one=False):
             cat = "Anomalous"
         if cat:
             rows = [i for i in store.incidents if i.get("threat_category") == cat]
-            return [{"total": len(rows)}] if not one else {"total": len(rows)}
-        return [] if not one else {"total": 0}
+            return [{"total": len(rows), "cnt": len(rows)}] if not one else {"total": len(rows), "cnt": len(rows)}
+        return [] if not one else {"total": 0, "cnt": 0}
     if "from security_events" in q:
         return store.incidents if not one else (store.incidents[0] if store.incidents else None)
     # --- Generic count queries (rules, mitigation_state, etc.) ---
@@ -77,6 +77,12 @@ def _m_query(query, args=(), one=False):
         return list(store.rules)
     if q.startswith("select posture"):
         return [store.state] if not one else store.state
+    if "from config" in q:
+        return []
+    if "from whitelist" in q:
+        return []
+    if "from jailed_ips" in q:
+        return None if one else []
     return []
 
 
@@ -121,22 +127,23 @@ _main.INCIDENT_RESPONSE_CACHE = {}
 _main.request_history = {}
 
 # Mock async functions for testing
-async def _mock_check_rate_limit(client_ip: str) -> bool:
+async def _mock_check_rate_limit(client_ip: str, path: str = "/") -> bool:
     return True
 
-async def _mock_async_check_rate_limit(client_ip: str) -> bool:
+async def _mock_async_check_rate_limit(client_ip: str, path: str = "/") -> bool:
     return True
 
 async def _mock_check_country_block(ip: str) -> bool:
     return False
 
-async def _mock_validate_jwt_token(request) -> None:
-    return None
+async def _mock_get_current_user():
+    return "kalki"
 
 _main.check_rate_limit = _mock_check_rate_limit
 _main.async_check_rate_limit = _mock_async_check_rate_limit
 _main.check_country_block = _mock_check_country_block
-_main.validate_jwt_token = _mock_validate_jwt_token
+
+app.dependency_overrides[_main.get_current_user] = _mock_get_current_user
 
 # Rebuild ACTIVE_RULES_CACHE from store
 def _do_reload():
