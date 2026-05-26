@@ -141,6 +141,75 @@ The project includes GitHub Actions CI/CD pipeline:
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+
+
+## Datadog Monitoring
+
+This project includes built-in Datadog integration for metrics, traces, and log collection.
+
+### Architecture
+
+The Datadog Agent runs as a sidecar container alongside the WAF, collecting telemetry via:
+- **OpenTelemetry OTLP** - Traces from the WAF FastAPI application forwarded to Datadog APM
+- **Prometheus / OpenMetrics** - Metrics (request rate, block rate, latency, etc.) scraped from /metrics
+- **Docker Log Collection** - All container logs automatically collected and tagged
+
+### Setup
+
+1. **Get a Datadog API Key**: app.datadoghq.com/organization-settings/api-keys
+2. **Set environment variables** (in .env or your CI/CD):
+
+DD_API_KEY=your_api_key_here
+DD_SITE=datadoghq.com          # or datadoghq.eu
+DD_ENV=production              # or staging / development
+
+3. **Deploy with Docker Compose**:
+
+export DD_API_KEY=your_api_key_here
+docker compose up -d --build
+
+### What Gets Monitored
+
+| Data Type | Source | Destination |
+|-----------|--------|-------------|
+| Application traces | OpenTelemetry (OTLP gRPC, port 4317) | Datadog APM |
+| Prometheus metrics | waf:8000/metrics | Datadog Metrics |
+| Container logs | Docker daemon | Datadog Logs |
+| System metrics | Datadog Agent | Datadog Infrastructure |
+
+### Dashboards & Monitors
+
+Pre-built dashboard and monitor definitions are in the datadog/ directory:
+
+| File | Description |
+|------|-------------|
+| datadog/dashboard.json | Security Overview dashboard (import via Datadog UI) |
+| datadog/monitors/waf-monitors.json | Alert monitors (block rate, timeouts, agent health, latency) |
+| datadog/conf.d/openmetrics.d/conf.yaml | Agent-side Prometheus scraping config |
+| datadog/conf.d/logs.d/conf.yaml | Log metadata enrichment config |
+
+### Importing Monitors and Dashboards
+
+1. Dashboard: In Datadog - Dashboards - New Dashboard - Import from JSON
+2. Monitors: Use the Datadog API or manually recreate from datadog/monitors/waf-monitors.json
+
+### CI/CD Pipeline Integration
+
+The GitLab CI pipeline (.gitlab-ci.yml) includes:
+- Git metadata labeling on Docker images for source-to-trace correlation
+- Optional datadog-ci trace upload (requires DD_API_KEY in CI variables)
+- Unified service tagging (DD_SERVICE, DD_ENV, DD_VERSION) on all artifacts
+
+### Key Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| DD_API_KEY | (required) | Datadog API key for agent authentication |
+| DD_SITE | datadoghq.com | Datadog intake site |
+| DD_ENV | production | Deployment environment label |
+| DD_AGENT_HOST | datadog-agent | Agent hostname (internal Docker DNS) |
+| OTEL_EXPORTER_OTLP_ENDPOINT | http://datadog-agent:4317 | OTLP gRPC endpoint |
+
 ## License
 
 This project is licensed under the MIT License.

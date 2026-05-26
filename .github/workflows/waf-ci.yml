@@ -29,13 +29,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt ruff
+
+      - name: Lint & Format Check
+        run: ruff check waf/ main.py tests/ && ruff format waf/ main.py tests/ --check
 
       - name: Syntax & Compile Check
-        run: python -m py_compile main.py
+        run: python -m py_compile main.py && python -m py_compile waf/*.py
 
       - name: Run Unit Tests
-        run: pytest tests/ -v --tb=short 2>/dev/null || echo "No tests found"
+        run: pytest tests/ -v --tb=short
 
   docker-build:
     runs-on: ubuntu-latest

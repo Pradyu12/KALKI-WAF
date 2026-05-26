@@ -10,10 +10,26 @@ services:
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
       - FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
       - UPSTREAM_SERVER_URL=http://upstream:8080
+      # Datadog / OpenTelemetry configuration
+      - DD_AGENT_HOST=datadog-agent
+      - DD_SERVICE=kalki-waf
+      - DD_ENV=${DD_ENV:-production}
+      - DD_VERSION=${CI_COMMIT_SHORT_SHA:-latest}
+      - DD_LOGS_INJECTION=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://datadog-agent:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_SERVICE_NAME=kalki-waf
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=kalki-waf,service.version=${CI_COMMIT_SHORT_SHA:-latest},deployment.environment=${DD_ENV:-production}
     depends_on:
       - upstream
+      - datadog-agent
     volumes:
       - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "kalki-waf"}]'
+      com.datadoghq.tags.env: ${DD_ENV:-production}
+      com.datadoghq.tags.service: kalki-waf
 
   upstream:
     build:
@@ -24,3 +40,43 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
+
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:7
+    restart: always
+    environment:
+      - DD_API_KEY=${DD_API_KEY:?Datadog API key is required}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_HOSTNAME=kalki-waf
+      - DD_ENV=${DD_ENV:-production}
+      - DD_SERVICE=kalki-waf
+      - DD_VERSION=${CI_COMMIT_SHORT_SHA:-latest}
+      - DD_TAGS=team:security app:kalki-waf service:kalki-waf
+      # OTLP ingest
+      - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENABLED=true
+      - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENABLED=true
+      - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT=0.0.0.0:4318
+      # Log collection
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE=name:datadog-agent
+      - DD_AC_EXCLUDE=name:datadog-agent
+      # Prometheus / OpenMetrics autodiscovery
+      # APM
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      # Health
+      - DD_HEALTH_PORT=5555
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - ./datadog/conf.d:/etc/datadog-agent/conf.d:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    healthcheck:
+      test: ["CMD", "agent", "health"]
+      interval: 30s
+      retries: 3
+      start_period: 20s
