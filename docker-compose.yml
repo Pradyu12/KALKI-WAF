@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   waf:
-    build: .
+    build: ./backend
     restart: always
     ports:
       - "8000:8000"
@@ -25,7 +25,7 @@ services:
       - upstream
       - datadog-agent
     volumes:
-      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./backend/firebase-credentials.json:/app/firebase-credentials.json:ro
     labels:
       com.datadoghq.ad.logs: '[{"source": "python", "service": "kalki-waf"}]'
       com.datadoghq.tags.env: ${DD_ENV:-production}
@@ -33,7 +33,7 @@ services:
 
   upstream:
     build:
-      context: ./upstream
+      context: ./backend/upstream
       dockerfile: Dockerfile
     restart: always
     ports:

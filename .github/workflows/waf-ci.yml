@@ -29,16 +29,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt ruff
+          pip install -r backend/requirements.txt ruff
 
       - name: Lint & Format Check
-        run: ruff check waf/ main.py tests/ && ruff format waf/ main.py tests/ --check
+        run: ruff check backend/ && ruff format backend/ --check
 
       - name: Syntax & Compile Check
-        run: python -m py_compile main.py && python -m py_compile waf/*.py
+        run: find backend -name '*.py' -exec python -m py_compile {} +
 
       - name: Run Unit Tests
-        run: pytest tests/ -v --tb=short
+        run: PYTHONPATH=backend pytest backend/tests/ -v --tb=short
 
   docker-build:
     runs-on: ubuntu-latest
@@ -70,7 +70,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -85,12 +85,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Deploys via SSH to your production server.
-      # Required GitHub Secrets (set in repo Settings > Secrets and Variables > Actions):
-      #   DEPLOY_HOST - Your server IP/hostname
-      #   DEPLOY_USER - SSH username
-      #   DEPLOY_SSH_KEY - SSH private key for authentication
-      #   DEPLOY_PORT - SSH port (optional, defaults to 22)
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:

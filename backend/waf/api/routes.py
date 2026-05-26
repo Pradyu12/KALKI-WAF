@@ -20,6 +20,10 @@ from waf.rules.models import IPBlacklistRequest, PostureUpdate, RuleCreate, Sand
 
 router = APIRouter()
 
+_FRONTEND_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend")
+)
+
 PROTECTED_RULE_IDS = {"sql-core-01", "xss-scrutiny-01", "rfi-blocker-01"}
 
 
@@ -67,8 +71,9 @@ async def root():
 
 @router.get("/dashboard")
 async def dashboard():
+    path = os.path.join(_FRONTEND_DIR, "dashboard.html")
     try:
-        with open("dashboard.html") as f:
+        with open(path) as f:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Dashboard UI not found") from None
@@ -76,7 +81,7 @@ async def dashboard():
 
 @router.get("/earth.jpg")
 async def earth_texture():
-    path = os.path.join(os.path.dirname(__file__), "..", "..", "static", "earth.jpg")
+    path = os.path.join(_FRONTEND_DIR, "static", "earth.jpg")
     if os.path.exists(path):
         with open(path, "rb") as f:
             return Response(content=f.read(), media_type="image/jpeg")
@@ -85,9 +90,10 @@ async def earth_texture():
 
 @router.get("/kalki_waf_logo.png")
 async def get_logo():
+    path = os.path.join(_FRONTEND_DIR, "kalki_waf_logo.png")
     try:
-        if os.path.exists("kalki_waf_logo.png"):
-            with open("kalki_waf_logo.png", "rb") as f:
+        if os.path.exists(path):
+            with open(path, "rb") as f:
                 content = f.read()
             return Response(content=content, media_type="image/png")
     except Exception as e:
