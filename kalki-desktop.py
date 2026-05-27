@@ -13,6 +13,7 @@ import sys
 import threading
 import time
 import warnings
+import socket
 from datetime import UTC, datetime
 
 # Suppress noisy GTK/GLib/Datadog preload warnings at startup
@@ -173,19 +174,35 @@ class KalkiDesktop:
                                    relief="flat", state="disabled", padx=6, pady=4)
         self.alerts_box.pack(fill="both", expand=True)
 
-        # Right: Agents
+        # Right: Local Agent & Geo Map
         right = tk.Frame(pw, bg="#0d0d12")
         pw.add(right, width=420)
-        tk.Label(right, text="AGENTS", font=("Consolas", 8, "bold"),
+        tk.Label(right, text="LOCAL AGENT", font=("Consolas", 8, "bold"),
                  fg="#6a6a78", bg="#0d0d12").pack(anchor="w", pady=(0, 3))
 
-        agent_frame = tk.Frame(right, bg="#0e0e14", highlightbackground="#1c1c28",
-                               highlightthickness=1)
-        agent_frame.pack(fill="both", expand=True)
-        self.agents_box = tk.Text(agent_frame, font=("Consolas", 9), bg="#0e0e14",
-                                   fg="#e0dfe6", insertbackground="#e0dfe6",
-                                   relief="flat", state="disabled", padx=6, pady=4)
-        self.agents_box.pack(fill="both", expand=True)
+        # Local Agent Info
+        agent_info_frame = tk.Frame(right, bg="#0e0e14", highlightbackground="#1c1c28",
+                                    highlightthickness=1)
+        agent_info_frame.pack(fill="x", padx=6, pady=6)
+        self.agent_status_lbl = tk.Label(agent_info_frame, text="● Active", font=("Consolas", 10, "bold"),
+                                         fg="#4edea3", bg="#0e0e14")
+        self.agent_status_lbl.pack(side="left")
+        self.agent_hostname_lbl = tk.Label(agent_info_frame, text="Hostname: ?", font=("Consolas", 9),
+                                           fg="#e0dfe6", bg="#0e0e14")
+        self.agent_hostname_lbl.pack(side="left", padx=(10, 0))
+        self.agent_ip_lbl = tk.Label(agent_info_frame, text="IP: ?", font=("Consolas", 9),
+                                     fg="#e0dfe6", bg="#0e0e14")
+        self.agent_ip_lbl.pack(side="left", padx=(10, 0))
+        self.agent_hb_lbl = tk.Label(agent_info_frame, text="HB: ?", font=("Consolas", 9),
+                                     fg="#e0dfe6", bg="#0e0e14")
+        self.agent_hb_lbl.pack(side="left", padx=(10, 0))
+
+        # Geo Map Placeholder (Cyan Holographic Style)
+        geo_frame = tk.Frame(right, bg="#00ffff", highlightbackground="#00ffff",
+                             highlightthickness=2)
+        geo_frame.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+        tk.Label(geo_frame, text="Geo Map\n(Holographic Style)", font=("Consolas", 10, "bold"),
+                 fg="#000000", bg="#00ffff").pack(expand=True)
 
         # ── Bottom bar ──
         bottom = tk.Frame(self.root, bg="#0d0d12", height=26)
@@ -364,23 +381,28 @@ class KalkiDesktop:
             self.metrics["CPU"].configure(text=f'{ls.get("cpu_percent", 0):.1f}%')
             self.metrics["Mem"].configure(text=f'{ls.get("memory_mb", 0):.0f} MB')
             self.metrics["Req/s"].configure(text=f'{ls.get("requests_per_second", 0):.1f}')
+        
+        # Update local agent info
         alist = agents.get("list", [])
-        if alist:
-            self.agents_box.configure(state="normal")
-            self.agents_box.delete("1.0", "end")
-            for a in alist:
-                st = a.get("status", "inactive")
-                dot = "●" if st == "active" else "○"
-                color = "#4edea3" if st == "active" else "#ff4d6d"
-                host = a.get("hostname", "?")
-                ip = a.get("ip_address", "?")
-                os_info = (a.get("os_info", "") or "")[:30]
-                hb = (a.get("last_heartbeat", "") or "")[:19] if a.get("last_heartbeat") else "never"
-                self.agents_box.insert("end", f"{dot} {host}\n")
-                self.agents_box.insert("end", f"   {ip}  |  {os_info}  |  {hb}\n\n")
-                self.agents_box.tag_add("dot", f"1.0", "1.1")
-                self.agents_box.tag_configure("dot", foreground=color)
-            self.agents_box.configure(state="disabled")
+        local_hostname = socket.gethostname()
+        local_agent = None
+        for a in alist:
+            if a.get("hostname") == local_hostname:
+                local_agent = a
+                break
+        
+        if local_agent:
+            st = local_agent.get("status", "inactive")
+            self.agent_status_lbl.configure(text="● Active" if st == "active" else "○ Inactive",
+                                          fg="#4edea3" if st == "active" else "#ff4d6d")
+            self.agent_hostname_lbl.configure(text=f"Hostname: {local_agent.get('hostname', '?')}")
+            self.agent_ip_lbl.configure(text=f"IP: {local_agent.get('ip_address', '?')}")
+            hb = local_agent.get("last_heartbeat", "")
+            if hb:
+                hb_short = hb[:19] if len(hb) > 19 else hb
+                self.agent_hb_lbl.configure(text=f"HB: {hb_short}")
+            else:
+                self.agent_hb_lbl.configure(text="HB: Never")
 
     # ── Status bar ───────────────────────────────────────────────────
     def _set_status(self, msg):
