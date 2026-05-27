@@ -26,9 +26,14 @@ _metrics_task: asyncio.Task = None
 _otel_started = False
 
 
+def _is_otel_disabled() -> bool:
+    val = os.environ.get("OTEL_SDK_DISABLED", "").strip().lower()
+    return val in ("true", "1", "yes")
+
+
 def _start_otel():
     global _otel_started
-    if _otel_started or os.environ.get("OTEL_SDK_DISABLED"):
+    if _otel_started or _is_otel_disabled():
         return
     _otel_started = True
 
@@ -59,6 +64,9 @@ async def lifespan(app: FastAPI):
     init_db()
     reload_rules_cache()
     reload_global_posture()
+    # Initialize SIEM/XDR modules
+    from waf.siem.engine import init_siem
+    init_siem()
     _metrics_task = start_metrics_sampler()
     yield
     if _metrics_task:
@@ -68,11 +76,13 @@ async def lifespan(app: FastAPI):
     await http_client.aclose()
 
 
-app = FastAPI(title="Kalki WAF Core Engine", version="2.0.0", lifespan=lifespan)
+_cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+
+app = FastAPI(title="KALKI WAF SIEM/XDR", version="3.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -82,24 +92,13 @@ app.middleware("http")(inspect_and_proxy_traffic)
 app.include_router(router)
 
 if __name__ == "__main__":
-    import subprocess
-
     try:
-        result = subprocess.run(["fuser", "-k", "8000/tcp"], capture_output=True)
+        import subprocess
+        result = subprocess.run(["fuser", "-k", "8000/tcp"], capture_output=True, timeout=5)
         if result.returncode == 0:
             print("[INFO] Freed port 8000")
-    except FileNotFoundError:
-        try:
-            pid = subprocess.check_output(
-                ["lsof", "-ti", ":8000"], stderr=subprocess.DEVNULL
-            ).decode().strip()
-            if pid:
-                for p in pid.split():
-                    os.kill(int(p), 9)
-                print(f"[INFO] Killed old process(es) on port 8000: {pid}")
-        except Exception:
-            pass
+    except Exception:
+        pass
 
     import uvicorn
-
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

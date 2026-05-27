@@ -61,4 +61,17 @@ async def check_rate_limit(client_ip: str) -> bool:
     if len(state.request_history[client_ip]) >= limit:
         return False
     state.request_history[client_ip].append(current_time)
+    if len(state.request_history) > 10000:
+        _cleanup_stale_ips(current_time)
     return True
+
+
+def _cleanup_stale_ips(now: float | None = None):
+    if now is None:
+        now = time.time()
+    stale = [
+        ip for ip, times in state.request_history.items()
+        if not times or now - max(times) > RATE_LIMIT_WINDOW * 2
+    ]
+    for ip in stale:
+        del state.request_history[ip]

@@ -82,7 +82,7 @@ def fetch_telemetry_data():
 
     return {
         "metrics": {
-            "total_ingress": total_blocked + 1524,
+            "total_ingress": total_blocked,
             "total_blocked": total_blocked,
             "sqli_count": sqli_count,
             "xss_count": xss_count,

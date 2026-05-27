@@ -3,971 +3,1375 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sudarshana Protocol - Geo-Intelligence</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<title>KALKI SIEM/XDR Platform</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-<script>
-tailwind.config = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        bg: '#0d0d12',
-        surface: '#131318',
-        'surface-2': '#1a1a21',
-        'surface-3': '#1f1f28',
-        border: 'rgba(255,255,255,0.07)',
-        'border-hi': 'rgba(255,255,255,0.12)',
-        primary: '#adc6ff',
-        'primary-dim': '#4b8eff',
-        secondary: '#4edea3',
-        tertiary: '#ffb95f',
-        threat: '#ff003c',
-        'threat-dim': 'rgba(255,0,60,0.15)',
-        muted: '#8b90a0',
-        faint: '#414755',
-      },
-      fontFamily: {
-        mono: ['JetBrains Mono', 'monospace'],
-        sans: ['Inter', 'sans-serif']
-      },
-    }
-  }
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#0d0d12;color:#e4e1e8;font-family:'Inter',sans-serif;overflow:hidden}
-#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
-::-webkit-scrollbar{width:3px;height:3px}
-::-webkit-scrollbar-thumb{background:#414755;border-radius:2px}
+html,body{height:100%;background:#06060a;color:#e0dfe6;font-family:'Inter',sans-serif;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,0.015) 0,rgba(255,255,255,0.015) 1px,transparent 1px,transparent 3px);pointer-events:none;z-index:9999}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:#2a2a32;border-radius:2px}
 ::-webkit-scrollbar-track{background:transparent}
 
-/* Layout */
-#shell{display:flex;height:100vh;position:relative;z-index:1}
-#sidebar{width:220px;flex-shrink:0;display:flex;flex-direction:column;
-  background:rgba(10,10,15,0.92);backdrop-filter:blur(28px);
-  border-right:1px solid rgba(255,255,255,0.06);
-  transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:60}
-#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-#topbar{height:58px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
-  padding:0 24px;background:rgba(13,13,18,0.8);backdrop-filter:blur(20px);
-  border-bottom:1px solid rgba(255,255,255,0.06)}
-#content{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:20px}
+#shell{display:flex;height:100vh}
+#sidebar{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;
+  background:rgba(6,6,10,0.96);border-right:1px solid rgba(255,255,255,0.04);padding:6px 0;z-index:60}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:rgba(6,6,10,0.88);border-bottom:1px solid rgba(255,255,255,0.04)}
+#content{flex:1;overflow-y:auto;padding-bottom:32px;display:flex;flex-direction:column}
+.content-inner{padding:12px 16px;display:flex;flex-direction:column;gap:12px;flex:1}
+#ticker{height:28px;flex-shrink:0;display:flex;align-items:center;background:rgba(6,6,10,0.95);border-top:1px solid rgba(255,255,255,0.04);padding:0 14px;gap:16px;overflow:hidden;font-size:10px;font-family:'JetBrains Mono',monospace;z-index:50}
 
-/* Sidebar */
-.sb-logo{padding:18px 16px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.06)}
-.sb-logo-icon{color:#adc6ff;font-size:22px}
-.sb-logo-name{font-size:13px;font-weight:700;color:#adc6ff;letter-spacing:-.01em}
-.sb-logo-sub{font-size:9px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.1em;margin-top:1px}
-.sb-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
-.sb-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:8px;
-  font-size:13px;color:#8b90a0;cursor:pointer;transition:all .15s;
-  border:1px solid transparent;user-select:none}
-.sb-item:hover{background:rgba(255,255,255,0.04);color:#e4e1e8}
-.sb-item.active{background:rgba(173,198,255,0.09);color:#adc6ff;border-color:rgba(173,198,255,0.14)}
-.sb-item .material-symbols-outlined{font-size:17px}
-.sb-footer{padding:12px 14px;border-top:1px solid rgba(255,255,255,0.06)}
-.sb-status{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:7px;
-  background:rgba(78,222,163,0.07);border:1px solid rgba(78,222,163,0.14)}
-.sb-dot{width:6px;height:6px;border-radius:50%;background:#4edea3;animation:pulse 2s infinite}
-.sb-status-txt{font-size:10px;font-family:'JetBrains Mono',monospace;color:#4edea3;text-transform:uppercase;letter-spacing:.08em}
-.sb-ver{font-size:9px;font-family:'JetBrains Mono',monospace;color:#414755;text-align:center;margin-top:7px}
+.side-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  color:#4a4a56;cursor:pointer;transition:all .15s;margin:1px 0;position:relative}
+.side-icon:hover{color:#e0dfe6;background:rgba(255,255,255,0.04)}
+.side-icon.active{color:#00dddd;background:rgba(0,221,221,0.1);text-shadow:0 0 8px rgba(0,221,221,0.3)}
+.side-icon .material-symbols-outlined{font-size:18px}
+.side-icon .badge{position:absolute;top:1px;right:1px;width:6px;height:6px;border-radius:50%;background:#fe00fe;box-shadow:0 0 6px #fe00fe}
 
-/* Cards */
-.card{background:rgba(19,19,24,0.7);backdrop-filter:blur(16px);
-  border:1px solid rgba(255,255,255,0.07);border-radius:12px;overflow:hidden}
-.card-hd{padding:13px 18px;border-bottom:1px solid rgba(255,255,255,0.06);
-  display:flex;align-items:center;justify-content:space-between}
-.card-title{font-size:10px;font-family:'JetBrains Mono',monospace;color:#c1c6d7;
-  text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px}
-.card-title .material-symbols-outlined{font-size:14px}
+.card{background:rgba(14,14,20,0.88);border:1px solid rgba(255,255,255,0.05);border-radius:8px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:rgba(0,221,221,0.15);box-shadow:0 0 12px rgba(0,221,221,0.04)}
+.card-hd{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:space-between;min-height:34px}
+.card-title{font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:5px}
+.card-body{padding:10px 12px}
 
-/* Metric cards */
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.mc{background:rgba(19,19,24,0.7);border:1px solid rgba(255,255,255,0.07);
-  border-radius:12px;padding:18px 20px;transition:transform .2s,box-shadow .2s;cursor:default}
-.mc:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(0,0,0,0.5)}
-.mc-lbl{font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;
-  text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.mc-lbl .material-symbols-outlined{font-size:15px}
-.mc-val{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
-.mc-sub{font-size:11px;color:#414755;margin-top:5px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.mc{background:rgba(14,14,20,0.88);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px 14px;position:relative;transition:border-color .2s}
+.mc:hover{border-color:rgba(0,221,221,0.15)}
+.mc-lbl{font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.mc-val{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
+.mc-spark{position:absolute;bottom:6px;right:10px;width:60px;height:20px;opacity:.5}
 
-/* Globe */
-.globe-grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
-#globe-wrap{height:290px;position:relative;background:radial-gradient(ellipse at 50% 60%,rgba(75,142,255,0.03) 0%,transparent 65%);overflow:hidden}
-#globe-canvas{width:100%;height:100%;display:block}
+.tbl-wrap{overflow-x:auto;font-size:11px;font-family:'JetBrains Mono',monospace}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid rgba(255,255,255,0.05)}
+th{padding:6px 10px;text-align:left;font-size:9px;color:#6a6a78;font-weight:500;white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
+tbody tr{border-bottom:1px solid rgba(255,255,255,0.03);transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,0.03)}
+td{padding:5px 10px;white-space:nowrap}
 
-/* Right panel */
-.rpanel{display:flex;flex-direction:column;gap:14px}
-.chart-bars{display:flex;align-items:flex-end;gap:3px;height:68px;margin-top:10px}
-.cbar{flex:1;border-radius:3px 3px 0 0;min-width:0;transition:height .5s ease,background .5s ease}
-.posture-btns{display:flex;flex-direction:column;gap:5px;margin-top:10px}
-.pb{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:7px;
-  font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer;
-  transition:all .15s;border:1px solid rgba(255,255,255,0.07);
-  background:none;color:#8b90a0;text-align:left;width:100%}
-.pb:hover{background:rgba(255,255,255,0.04);color:#e4e1e8}
-.pb.active{border-color:#adc6ff;background:rgba(173,198,255,0.09);color:#adc6ff}
-.pb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.tag{display:inline-flex;align-items:center;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:500;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.t-critical{background:rgba(254,0,254,0.12);color:#fe00fe;border:1px solid rgba(254,0,254,0.25)}
+.t-high{background:rgba(255,0,60,0.12);color:#ff4d6d;border:1px solid rgba(255,0,60,0.25)}
+.t-medium{background:rgba(255,185,95,0.1);color:#ffb95f;border:1px solid rgba(255,185,95,0.2)}
+.t-low{background:rgba(78,222,163,0.08);color:#4edea3;border:1px solid rgba(78,222,163,0.15)}
+.t-info{background:rgba(0,221,221,0.08);color:#00dddd;border:1px solid rgba(0,221,221,0.15)}
 
-/* Tags */
-.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;
-  font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:500;letter-spacing:.04em;white-space:nowrap}
-.t-blocked{background:rgba(255,0,60,0.12);color:#ff4d6d;border:1px solid rgba(255,0,60,0.22)}
-.t-flagged{background:rgba(255,185,95,0.1);color:#ffb95f;border:1px solid rgba(255,185,95,0.2)}
-.t-allowed{background:rgba(78,222,163,0.08);color:#4edea3;border:1px solid rgba(78,222,163,0.15)}
-.t-sqli{background:rgba(255,0,60,0.08);color:#ff6b8a;border:1px solid rgba(255,0,60,0.15)}
-.t-xss{background:rgba(255,185,95,0.08);color:#ffb95f;border:1px solid rgba(255,185,95,0.15)}
-.t-rfi,.t-other{background:rgba(173,198,255,0.08);color:#adc6ff;border:1px solid rgba(173,198,255,0.15)}
-
-/* Table */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:12px;font-family:'JetBrains Mono',monospace}
-thead tr{border-bottom:1px solid rgba(255,255,255,0.06)}
-th{padding:9px 16px;text-align:left;font-size:10px;color:#8b90a0;font-weight:500;
-  text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
-tbody tr{border-bottom:1px solid rgba(255,255,255,0.03);transition:background .15s}
-tbody tr:hover{background:rgba(255,255,255,0.02)}
-td{padding:9px 16px;color:#e4e1e8;white-space:nowrap}
-td.dim{color:#8b90a0}
-
-/* Forms */
-.fg{display:flex;flex-direction:column;gap:5px}
-.fl{font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.06em}
-.fi{background:#1a1a21;border:1px solid #414755;color:#e4e1e8;border-radius:6px;
-  padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;outline:none;
-  transition:border-color .15s;width:100%}
-.fi:focus{border-color:#adc6ff}
-.fs{background:#1a1a21;border:1px solid #414755;color:#e4e1e8;border-radius:6px;
-  padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;outline:none;width:100%;cursor:pointer}
-.btn-p{background:#adc6ff;color:#001a41;font-weight:600;border-radius:6px;
-  padding:8px 20px;font-size:13px;cursor:pointer;border:none;transition:opacity .15s}
-.btn-p:hover{opacity:.85}
-.btn-d{background:rgba(255,0,60,0.1);color:#ff003c;border:1px solid rgba(255,0,60,0.2);
-  border-radius:5px;padding:5px 11px;font-size:11px;cursor:pointer;
-  font-family:'JetBrains Mono',monospace;transition:background .15s}
-.btn-d:hover{background:rgba(255,0,60,0.2)}
-
-/* Toggle */
-.tog{width:38px;height:21px;background:#414755;border-radius:11px;position:relative;
-  cursor:pointer;transition:background .2s;flex-shrink:0}
-.tog.on{background:#00a572}
-.tog::after{content:'';position:absolute;top:2.5px;left:2.5px;width:16px;height:16px;
-  border-radius:50%;background:#fff;transition:transform .2s}
-.tog.on::after{transform:translateX(17px)}
-
-/* Sections */
 .sec{display:none}
-.sec.show{display:contents}
+.sec.active{display:contents}
+.posture-btn.active{opacity:1;box-shadow:0 0 8px currentColor}
+
+/* Empty state illustrations */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:8px;text-align:center}
+.empty-state .icon{font-size:36px;color:#2a2a32;margin-bottom:4px}
+.empty-state .msg{font-size:11px;color:#4a4a56;font-family:'JetBrains Mono',monospace}
+.empty-state .sub{font-size:9px;color:#3a3a46;font-family:'JetBrains Mono',monospace;margin-top:2px}
+.empty-state .action{padding:5px 14px;border-radius:5px;border:1px solid rgba(0,221,221,0.15);background:rgba(0,221,221,0.04);color:#00dddd;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;margin-top:6px;transition:.15s}
+.empty-state .action:hover{background:rgba(0,221,221,0.1)}
+
+/* Skeleton shimmer */
+@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+.skel{background:linear-gradient(90deg,#14141e 25%,#1c1c28 50%,#14141e 75%);background-size:400px 100%;animation:shimmer 1.8s infinite;border-radius:4px}
+.skel-line{height:12px;margin-bottom:6px;width:100%}
+.skel-line.w60{width:60%}
+.skel-line.w40{width:40%}
+.skel-line.w80{width:80%}
+.skel-block{height:120px;width:100%}
+
+/* Globe radar */
+#globe-wrap{position:relative;width:100%;min-height:220px;overflow:hidden;background:radial-gradient(ellipse at 50% 50%,rgba(0,221,221,0.02) 0%,transparent 70%)}
+#globe-canvas{width:100%;height:100%;position:absolute;inset:0}
+
+/* Sparkline canvas */
+.spark-canvas{width:100%;height:24px;margin-top:6px;opacity:.6}
 
 /* Animations */
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.2)}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.1)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 4px rgba(0,221,221,0.1)}50%{box-shadow:0 0 12px rgba(0,221,221,0.2)}}
 .fadein{animation:fadein .3s ease}
+.mc-glow{animation:glow-pulse 3s ease-in-out infinite}
 
-/* Responsive */
-@media(max-width:960px){
+@media(max-width:768px){
+  #sidebar{width:40px}
+  #content{padding:0}
+  .content-inner{padding:8px}
   .metrics{grid-template-columns:1fr 1fr}
-  .globe-grid{grid-template-columns:1fr}
-  .rpanel{flex-direction:row}
-}
-@media(max-width:700px){
-  #sidebar{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%)}
-  #sidebar.open{transform:translateX(0)}
-  .metrics{grid-template-columns:1fr 1fr}
-  #content{padding:14px}
-  .rpanel{flex-direction:column}
+  .mc{padding:10px}
+  #ticker{gap:8px;font-size:9px}
 }
 </style>
 </head>
 <body>
-<canvas id="bg-canvas"></canvas>
-
 <div id="shell">
-<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<!-- Sidebar -->
 <aside id="sidebar">
-  <div class="sb-logo">
-    <span class="material-symbols-outlined sb-logo-icon" style="font-variation-settings:'FILL' 1">security</span>
-    <div>
-      <div class="sb-logo-name">Sudarshana Protocol</div>
-      <div class="sb-logo-sub">Geo-Intelligence</div>
-    </div>
-  </div>
-  <nav class="sb-nav">
-    <div class="sb-item active" data-sec="dashboard" onclick="nav(this)">
-      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">radar</span>Threat Monitor
-    </div>
-    <div class="sb-item" data-sec="rules" onclick="nav(this)">
-      <span class="material-symbols-outlined">shield</span>WAF Rules
-    </div>
-    <div class="sb-item" data-sec="incidents" onclick="nav(this)">
-      <span class="material-symbols-outlined">warning</span>Incidents
-    </div>
-    <div class="sb-item" data-sec="sandbox" onclick="nav(this)">
-      <span class="material-symbols-outlined">smart_toy</span>Kalki AI
-    </div>
-    <div class="sb-item" data-sec="settings" onclick="nav(this)">
-      <span class="material-symbols-outlined">history</span>System Logs
-    </div>
-  </nav>
-  <div class="sb-footer">
-    <div class="sb-status">
-      <div class="sb-dot"></div>
-      <span class="sb-status-txt">System Secure</span>
-    </div>
-    <div class="sb-ver">v1.0.0 · Firebase · SQLite Fallback</div>
-  </div>
+  <div class="side-icon active" data-sec="overview" onclick="nav(this)" title="Overview"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">radar</span></div>
+  <div class="side-icon" data-sec="siem" onclick="nav(this)" title="SIEM"><span class="material-symbols-outlined">notification_important</span><span class="badge" id="siem-badge"></span></div>
+  <div class="side-icon" data-sec="hids" onclick="nav(this)" title="HIDS"><span class="material-symbols-outlined">dns</span></div>
+  <div class="side-icon" data-sec="fim" onclick="nav(this)" title="FIM"><span class="material-symbols-outlined">folder</span></div>
+  <div class="side-icon" data-sec="sca" onclick="nav(this)" title="SCA"><span class="material-symbols-outlined">checklist</span></div>
+  <div class="side-icon" data-sec="vuln" onclick="nav(this)" title="Vuln"><span class="material-symbols-outlined">bug_report</span></div>
+  <div class="side-icon" data-sec="response" onclick="nav(this)" title="Response"><span class="material-symbols-outlined">flash_on</span></div>
+  <div class="side-icon" data-sec="agents" onclick="nav(this)" title="Agents"><span class="material-symbols-outlined">devices</span><span class="badge" id="agt-badge"></span></div>
+  <div style="flex:1"></div>
+  <div class="side-icon" data-sec="rules" onclick="nav(this)" title="Rules"><span class="material-symbols-outlined">shield</span></div>
+  <div class="side-icon" data-sec="settings" onclick="nav(this)" title="Settings"><span class="material-symbols-outlined">settings</span></div>
 </aside>
 
-<!-- ═══════════════════════ MAIN ═══════════════════════ -->
+<!-- Main -->
 <div id="main">
   <header id="topbar">
-    <div style="display:flex;align-items:center;gap:12px">
-      <button type="button" onclick="toggleSb()" style="background:none;border:none;color:#8b90a0;cursor:pointer;display:none;padding:2px" id="menu-btn">
-        <span class="material-symbols-outlined" style="font-size:22px">menu</span>
-      </button>
-      <span style="font-size:13px;font-weight:600;color:#e4e1e8" id="page-title">Geo-Intelligence</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:17px;font-weight:700;color:#00dddd;font-family:'JetBrains Mono',monospace;letter-spacing:-.03em">KALKI</span>
+      <span style="font-size:11px;color:#4a4a56;font-family:'JetBrains Mono',monospace" id="page-title">/overview</span>
     </div>
-    <div style="display:flex;align-items:center;gap:14px">
-      <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;
-        background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
-        font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.06em">
-        <span id="posture-dot" style="width:5px;height:5px;border-radius:50%;background:#4edea3;animation:pulse 2s infinite;display:inline-block"></span>
-        <span id="posture-label">Standard Posture</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:10px;background:rgba(255,255,255,0.03);font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78">
+        <span id="posture-dot" style="width:4px;height:4px;border-radius:50%;background:#4edea3;display:inline-block"></span>
+        <span id="posture-label">Standard</span>
       </div>
-      <span id="clock" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:#414755"></span>
+      <span id="clock" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#3a3a46"></span>
     </div>
   </header>
 
   <div id="content">
+  <div class="content-inner">
 
-<!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
-<div id="sec-dashboard" class="sec show">
+<!-- ════════════ OVERVIEW ════════════ -->
+<div id="sec-overview" class="sec active">
+  <div class="metrics fadein" id="ov-metrics"></div>
 
-  <!-- Metrics -->
-  <div class="metrics fadein">
-    <div class="mc">
-      <div class="mc-lbl">Total Blocked <span class="material-symbols-outlined" style="color:#ff003c;font-variation-settings:'FILL' 1">block</span></div>
-      <div class="mc-val" style="color:#ff003c" id="m-blocked">—</div>
-      <div class="mc-sub">threats neutralized</div>
+  <div style="display:grid;grid-template-columns:2.5fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">radar</span>Global Threat Radar</span><span style="font-size:8px;color:#4edea3;animation:blink 2s infinite">● LIVE</span></div>
+      <div id="globe-wrap" style="height:220px"><canvas id="globe-canvas"></canvas></div>
     </div>
-    <div class="mc">
-      <div class="mc-lbl">Total Ingress <span class="material-symbols-outlined" style="color:#adc6ff;font-variation-settings:'FILL' 1">swap_vert</span></div>
-      <div class="mc-val" style="color:#adc6ff" id="m-ingress">—</div>
-      <div class="mc-sub">requests inspected</div>
-    </div>
-    <div class="mc">
-      <div class="mc-lbl">Active Rules <span class="material-symbols-outlined" style="color:#4edea3;font-variation-settings:'FILL' 1">security</span></div>
-      <div class="mc-val" style="color:#4edea3" id="m-rules">—</div>
-      <div class="mc-sub">signatures loaded</div>
-    </div>
-    <div class="mc">
-      <div class="mc-lbl">SQLi / XSS <span class="material-symbols-outlined" style="color:#ffb95f;font-variation-settings:'FILL' 1">bug_report</span></div>
-      <div class="mc-val" style="color:#ffb95f"><span id="m-sqli">—</span><span style="color:#414755;font-size:16px"> / </span><span id="m-xss">—</span></div>
-      <div class="mc-sub">injection attempts</div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">donut_small</span>Threat Distribution</span></div>
+      <div class="card-body" style="height:220px"><canvas id="ov-dist-chart"></canvas></div>
     </div>
   </div>
 
-  <!-- Globe + Right Panel -->
-  <div class="globe-grid fadein">
-    <!-- Holographic Globe -->
-    <div class="card">
-      <div class="card-hd">
-        <div class="card-title">
-          <span class="material-symbols-outlined" style="color:#ff003c;font-variation-settings:'FILL' 1">public</span>
-          Global Threat Map
-        </div>
-        <span style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#ff003c;animation:blink 1.5s infinite">● LIVE</span>
-      </div>
-      <div id="globe-wrap">
-        <canvas id="globe-canvas"></canvas>
-      </div>
-      <div style="padding:10px 18px;display:flex;gap:18px;border-top:1px solid rgba(255,255,255,0.06)">
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0">
-          <span style="width:7px;height:7px;border-radius:50%;background:#ff003c;display:inline-block;box-shadow:0 0 6px #ff003c"></span>Threat Origin
-        </div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0">
-          <span style="width:7px;height:7px;border-radius:50%;background:#adc6ff;display:inline-block;box-shadow:0 0 6px #adc6ff"></span>Protected Node
-        </div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0">
-          <span style="width:7px;height:7px;border-radius:50%;background:#4edea3;display:inline-block;box-shadow:0 0 6px #4edea3"></span>Clean Traffic
-        </div>
-      </div>
+  <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">show_chart</span>Threat Timeline (24h)</span></div>
+      <div class="card-body" style="height:160px"><canvas id="ov-timeline-chart"></canvas></div>
     </div>
-
-    <!-- Right Panel -->
-    <div class="rpanel">
-      <!-- Traffic Chart -->
-      <div class="card" style="padding:16px;flex:1">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:6px">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#adc6ff">show_chart</span>Traffic
-          </div>
-          <span style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#414755">req/min</span>
-        </div>
-        <div class="chart-bars" id="traffic-chart">
-          <div class="cbar" style="height:40%;background:rgba(173,198,255,0.3)"></div>
-          <div class="cbar" style="height:65%;background:rgba(173,198,255,0.4)"></div>
-          <div class="cbar" style="height:45%;background:rgba(173,198,255,0.3)"></div>
-          <div class="cbar" style="height:80%;background:rgba(255,0,60,0.45)"></div>
-          <div class="cbar" style="height:55%;background:rgba(78,222,163,0.35)"></div>
-          <div class="cbar" style="height:90%;background:rgba(255,0,60,0.5)"></div>
-          <div class="cbar" style="height:60%;background:rgba(173,198,255,0.35)"></div>
-          <div class="cbar" style="height:100%;background:rgba(255,0,60,0.55)"></div>
-          <div class="cbar" style="height:40%;background:rgba(173,198,255,0.3)"></div>
-          <div class="cbar" style="height:70%;background:rgba(173,198,255,0.4)"></div>
-        </div>
-      </div>
-      <!-- Posture -->
-      <div class="card" style="padding:16px">
-        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:6px">
-          <span class="material-symbols-outlined" style="font-size:14px;color:#adc6ff">tune</span>Mitigation Posture
-        </div>
-        <div class="posture-btns" id="posture-btns">
-          <button class="pb" onclick="setPosture('Monitor Only')"><span class="pb-dot" style="background:#ffb95f"></span>Monitor Only</button>
-          <button class="pb active" onclick="setPosture('Standard Posture')"><span class="pb-dot" style="background:#4edea3"></span>Standard Posture</button>
-          <button class="pb" onclick="setPosture('Under Attack')"><span class="pb-dot" style="background:#ff003c"></span>Under Attack</button>
-        </div>
-      </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">dns</span>HIDS</span></div>
+      <div class="card-body" id="ov-hids"></div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">flash_on</span>Active Response</span></div>
+      <div class="card-body" id="ov-response"></div>
     </div>
   </div>
 
-  <!-- Live Feed -->
   <div class="card fadein">
-    <div class="card-hd">
-      <div class="card-title"><span class="material-symbols-outlined">radar</span>Live Threat Feed</div>
-      <span style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#4edea3;animation:blink 1.5s infinite">STREAMING</span>
+    <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined" style="color:#ff4d6d">radar</span>Live Event Feed</span><span style="font-size:8px;color:#4edea3;animation:blink 1.5s infinite">● STREAMING</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Source IP</th><th>Category</th><th>URI</th><th>Action</th></tr></thead><tbody id="ov-feed"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ════════════ SIEM ════════════ -->
+<div id="sec-siem" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px" class="fadein" id="siem-metrics"></div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">SIEM Alerts</span><span id="siem-count" style="font-size:9px;color:#6a6a78">0</span></div>
+      <div class="tbl-wrap" id="siem-table-wrap"></div>
     </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Timestamp</th><th>Source IP</th><th>Category</th><th>URI</th><th>Action</th></tr></thead>
-        <tbody id="live-log"><tr><td colspan="5" style="text-align:center;color:#414755;padding:20px">Loading...</td></tr></tbody>
-      </table>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Severity</span></div>
+      <div class="card-body" style="height:170px"><canvas id="siem-pie"></canvas></div>
     </div>
   </div>
+  <div class="card fadein">
+    <div class="card-hd"><span class="card-title">Correlation Rules</span></div>
+    <div class="tbl-wrap" id="siem-rules-wrap"></div>
+  </div>
+</div>
 
-</div><!-- /dashboard -->
+<!-- ════════════ HIDS ════════════ -->
+<div id="sec-hids" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px" class="fadein" id="hids-metrics"></div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Alerts</span><span id="hids-count" style="font-size:9px;color:#6a6a78">0</span></div>
+      <div class="tbl-wrap" id="hids-table-wrap"></div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">By Type</span></div>
+      <div class="card-body" style="height:170px"><canvas id="hids-pie"></canvas></div>
+    </div>
+  </div>
+</div>
 
-<!-- ═══════════════════════ RULES ═══════════════════════ -->
+<!-- ════════════ FIM ════════════ -->
+<div id="sec-fim" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px" class="fadein" id="fim-metrics"></div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Events</span><span id="fim-count" style="font-size:9px;color:#6a6a78">0</span></div>
+      <div class="tbl-wrap" id="fim-table-wrap"></div>
+    </div>
+    <div class="card fadein" style="display:flex;flex-direction:column">
+      <div class="card-hd"><span class="card-title">Actions</span></div>
+      <div class="card-body" style="flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center">
+        <button onclick="runFimCheck()" style="padding:8px;border-radius:5px;border:1px solid rgba(0,221,221,0.2);background:rgba(0,221,221,0.05);color:#00dddd;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;transition:.15s">Run Integrity Check</button>
+        <div style="font-size:9px;color:#4a4a56;text-align:center;font-family:'JetBrains Mono',monospace">Checks monitored files for hash changes</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ SCA ════════════ -->
+<div id="sec-sca" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Compliance Score</span></div>
+      <div class="card-body" style="height:200px;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <canvas id="sca-gauge" style="max-width:180px;max-height:180px"></canvas>
+        <div id="sca-score-label" style="margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#6a6a78"></div>
+      </div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Benchmark Results</span></div>
+      <div class="tbl-wrap" id="sca-table-wrap"></div>
+    </div>
+  </div>
+  <button onclick="runSca()" style="align-self:flex-start;padding:7px 16px;border-radius:5px;border:1px solid rgba(0,221,221,0.2);background:rgba(0,221,221,0.05);color:#00dddd;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;transition:.15s">Run CIS Benchmark</button>
+</div>
+
+<!-- ════════════ VULN ════════════ -->
+<div id="sec-vuln" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px" class="fadein" id="vuln-metrics"></div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Known Vulnerabilities</span><span id="vuln-count" style="font-size:9px;color:#6a6a78">0</span></div>
+      <div class="tbl-wrap" id="vuln-table-wrap"></div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Severity</span></div>
+      <div class="card-body" style="height:170px"><canvas id="vuln-pie"></canvas></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Software Inventory</span></div>
+      <div class="tbl-wrap" id="vuln-inv-wrap"></div>
+    </div>
+    <div class="card fadein" style="display:flex;flex-direction:column">
+      <div class="card-hd"><span class="card-title">Scan</span></div>
+      <div class="card-body" style="flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:center">
+        <button onclick="runVulnScan()" style="padding:10px 20px;border-radius:5px;border:1px solid rgba(254,0,254,0.25);background:rgba(254,0,254,0.06);color:#fe00fe;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;transition:.15s">Run Vulnerability Scan</button>
+        <div style="font-size:9px;color:#4a4a56;text-align:center;font-family:'JetBrains Mono',monospace">Scans system packages against CVE database</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ ACTIVE RESPONSE ════════════ -->
+<div id="sec-response" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Response Playbooks</span><span style="font-size:9px;color:#6a6a78">6 ready</span></div>
+      <div class="card-body" id="response-playbooks"></div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title">Execution Log</span></div>
+      <div class="tbl-wrap" id="response-log-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ AGENTS ════════════ -->
+<div id="sec-agents" class="sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px" class="fadein" id="agt-metrics"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">devices</span>Registered Agents</span><span id="agt-count" style="font-size:9px;color:#6a6a78">0</span></div>
+      <div class="tbl-wrap" id="agt-table-wrap"></div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">history</span>Recent Results</span></div>
+      <div class="tbl-wrap" id="agt-results-wrap"></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card fadein" style="padding:14px">
+      <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Deploy Agent</div>
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#4a4a56;line-height:1.6">
+        <div style="margin-bottom:6px">Run this on any Linux host:</div>
+        <div style="background:#0e0e14;border:1px solid #22222a;border-radius:5px;padding:8px 10px;font-size:10px;color:#00dddd;word-break:break-all;user-select:all" id="agt-deploy-cmd">
+          curl -sL http://&lt;waf-ip&gt;:8000/api/v1/agents/script | python3 - --server http://&lt;waf-ip&gt;:8000
+        </div>
+        <div style="margin-top:8px;color:#6a6a78;font-size:9px">
+          <div>• Auto-registers on first run</div>
+          <div>• Sends heartbeats every 30s</div>
+          <div>• Supports FIM, SCA, Vuln inventory, HIDS log tailing</div>
+          <div>• Polls for remote commands from this dashboard</div>
+        </div>
+      </div>
+    </div>
+    <div class="card fadein">
+      <div class="card-hd"><span class="card-title"><span class="material-symbols-outlined">terminal</span>Queue Command</span></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
+        <select id="agt-cmd-target" style="background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:5px 8px;font-size:10px;font-family:'JetBrains Mono',monospace">
+          <option value="">— Select target agent —</option>
+        </select>
+        <select id="agt-cmd-type" style="background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:5px 8px;font-size:10px;font-family:'JetBrains Mono',monospace">
+          <option value="run_fim">Run FIM check</option>
+          <option value="run_sca">Run SCA benchmark</option>
+          <option value="run_vuln_inventory">Run Vuln inventory</option>
+          <option value="tail_logs">Tail auth logs</option>
+        </select>
+        <button onclick="queueAgentCmd()" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(0,221,221,0.25);background:rgba(0,221,221,0.06);color:#00dddd;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace">Send Command</button>
+        <span id="agt-cmd-msg" style="font-size:10px;font-family:'JetBrains Mono',monospace;display:none"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ RULES ════════════ -->
 <div id="sec-rules" class="sec">
-  <div class="card fadein" style="padding:20px">
-    <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px;margin-bottom:16px">
-      <span class="material-symbols-outlined" style="font-size:14px;color:#adc6ff">add_circle</span>New Signature Rule
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="fg"><label class="fl">Identifier</label><input class="fi" id="r-id" placeholder="e.g. Custom SQLi Block"/></div>
-      <div class="fg"><label class="fl">Regex Pattern</label><input class="fi" id="r-pat" placeholder="e.g. union\s+select" style="font-family:'JetBrains Mono',monospace"/></div>
-      <div class="fg"><label class="fl">Action</label>
-        <select class="fs" id="r-act"><option>Drop &amp; Blacklist</option><option>Log Payload Only</option><option>JS Challenge</option></select>
+  <div class="card fadein" style="padding:12px">
+    <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">New Signature Rule</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <input id="r-id" placeholder="Identifier" style="background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:6px 9px;font-size:11px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00dddd'" onblur="this.style.borderColor='#22222a'">
+      <input id="r-pat" placeholder="Regex Pattern" style="background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:6px 9px;font-size:11px;outline:none;font-family:'JetBrains Mono',monospace;transition:border-color .15s" onfocus="this.style.borderColor='#00dddd'" onblur="this.style.borderColor='#22222a'">
+      <div style="display:flex;gap:6px">
+        <select id="r-act" style="background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:6px 9px;font-size:11px;flex:1"><option>Drop</option><option>Log</option><option>Challenge</option></select>
+        <select id="r-sev" style="background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:6px 9px;font-size:11px;flex:1"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
       </div>
-      <div class="fg"><label class="fl">Category</label><input class="fi" id="r-cat" placeholder="SQLi / XSS / Custom"/></div>
-      <div class="fg"><label class="fl">Severity</label>
-        <select class="fs" id="r-sev"><option>Level 1</option><option>Level 2</option><option>Level 3</option><option>CRITICAL</option></select>
-      </div>
-      <div class="fg"><label class="fl">Description</label><input class="fi" id="r-desc" placeholder="Optional"/></div>
     </div>
-    <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
-      <button class="btn-p" onclick="createRule()">Deploy Rule</button>
-      <span id="rule-msg" style="font-size:11px;font-family:'JetBrains Mono',monospace;display:none"></span>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <input id="r-cat" placeholder="Category" style="flex:1;background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:6px 9px;font-size:11px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00dddd'" onblur="this.style.borderColor='#22222a'">
+      <input id="r-desc" placeholder="Description" style="flex:2;background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:6px 9px;font-size:11px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00dddd'" onblur="this.style.borderColor='#22222a'">
+      <button onclick="createRule()" style="padding:6px 16px;border-radius:5px;background:rgba(0,221,221,0.1);border:1px solid rgba(0,221,221,0.25);color:#00dddd;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;transition:.15s">Deploy</button>
     </div>
+    <span id="rule-msg" style="font-size:10px;font-family:'JetBrains Mono',monospace;display:none;margin-top:5px"></span>
   </div>
   <div class="card fadein">
-    <div class="card-hd">
-      <div class="card-title"><span class="material-symbols-outlined">rule</span>Signature Registry</div>
-      <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0" id="rules-count">—</span>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>ID</th><th>Identifier</th><th>Category</th><th>Action</th><th>Blocks</th><th>Status</th><th></th></tr></thead>
-        <tbody id="rules-table"><tr><td colspan="7" style="text-align:center;color:#414755;padding:20px">Loading...</td></tr></tbody>
-      </table>
-    </div>
+    <div class="card-hd"><span class="card-title">Signature Registry</span><span id="rules-count" style="font-size:9px;color:#6a6a78">0</span></div>
+    <div class="tbl-wrap" id="rules-table-wrap"></div>
   </div>
 </div>
 
-<!-- ═══════════════════════ INCIDENTS ═══════════════════════ -->
-<div id="sec-incidents" class="sec">
-  <div class="card fadein">
-    <div class="card-hd">
-      <div class="card-title"><span class="material-symbols-outlined" style="color:#ff003c;font-variation-settings:'FILL' 1">warning</span>Security Incidents</div>
-      <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0" id="inc-count">—</span>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Incident ID</th><th>Timestamp</th><th>Source IP</th><th>Category</th><th>URI</th><th>Action</th></tr></thead>
-        <tbody id="inc-table"><tr><td colspan="6" style="text-align:center;color:#414755;padding:20px">Loading...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════ SANDBOX ═══════════════════════ -->
-<div id="sec-sandbox" class="sec">
-  <div class="card fadein" style="padding:22px;max-width:640px">
-    <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px;margin-bottom:18px">
-      <span class="material-symbols-outlined" style="font-size:14px;color:#4edea3">science</span>Regex Sandbox
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="fg"><label class="fl">Regex Pattern</label><input class="fi" id="sb-pat" placeholder="union\s+select" style="font-family:'JetBrains Mono',monospace"/></div>
-      <div class="fg"><label class="fl">Test Payload</label>
-        <textarea class="fi" id="sb-pay" rows="3" placeholder="Paste suspicious payload here..." style="resize:none;font-family:'JetBrains Mono',monospace;font-size:12px"></textarea>
-      </div>
-      <button class="btn-p" style="align-self:flex-start" onclick="runSandbox()">Test Pattern</button>
-      <div id="sb-result" style="display:none;padding:14px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════ SETTINGS ═══════════════════════ -->
+<!-- ════════════ SETTINGS ════════════ -->
 <div id="sec-settings" class="sec">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:760px">
-    <div class="card fadein" style="padding:20px;grid-column:1/-1">
-      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px;margin-bottom:16px">
-        <span class="material-symbols-outlined" style="font-size:14px;color:#adc6ff">settings</span>Firewall Configuration
-      </div>
-      <div style="display:flex;flex-direction:column;gap:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <div><div style="font-size:13px;font-weight:500">Deep Packet Inspection</div><div style="font-size:11px;color:#8b90a0;margin-top:2px">Inspect all request bodies and query strings</div></div>
-          <div class="tog on" onclick="this.classList.toggle('on')"></div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <div><div style="font-size:13px;font-weight:500">Geo-Blocking (RU/CN)</div><div style="font-size:11px;color:#8b90a0;margin-top:2px">Block traffic from high-risk regions</div></div>
-          <div class="tog" onclick="this.classList.toggle('on')"></div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <div><div style="font-size:13px;font-weight:500">Rate Limiting</div><div style="font-size:11px;color:#8b90a0;margin-top:2px">50 req/10s per IP · 10 req/10s under attack</div></div>
-          <div class="tog on" onclick="this.classList.toggle('on')"></div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0">
-          <div><div style="font-size:13px;font-weight:500">Upstream Proxy</div><div style="font-size:11px;color:#8b90a0;margin-top:2px" id="upstream-disp">—</div></div>
-          <span class="tag t-allowed">Active</span>
-        </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card fadein" style="padding:14px;grid-column:1/-1">
+      <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Mitigation Posture</div>
+      <div style="display:flex;gap:8px" id="settings-posture">
+        <button class="posture-btn" data-p="Monitor Only" style="flex:1;padding:8px;border-radius:5px;border:1px solid rgba(255,185,95,0.25);background:rgba(255,185,95,0.05);color:#ffb95f;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;opacity:.6;transition:.15s">Monitor Only</button>
+        <button class="posture-btn active" data-p="Standard Posture" style="flex:1;padding:8px;border-radius:5px;border:1px solid rgba(78,222,163,0.25);background:rgba(78,222,163,0.05);color:#4edea3;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;opacity:.6;transition:.15s">Standard</button>
+        <button class="posture-btn" data-p="Under Attack" style="flex:1;padding:8px;border-radius:5px;border:1px solid rgba(255,0,60,0.25);background:rgba(255,0,60,0.05);color:#ff4d6d;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace;opacity:.6;transition:.15s">Under Attack</button>
       </div>
     </div>
-    <div class="card fadein" style="padding:20px">
-      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.09em;margin-bottom:14px">Database Backend</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="material-symbols-outlined" style="color:#4edea3;font-size:22px;font-variation-settings:'FILL' 1">database</span>
-        <div><div style="font-size:14px;font-weight:600" id="db-disp">—</div><div style="font-size:11px;color:#8b90a0">Active storage backend</div></div>
+    <div class="card fadein" style="padding:14px">
+      <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Blacklisted IPs</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="bl-ip" placeholder="1.2.3.4" style="flex:1;background:#0e0e14;border:1px solid #22222a;color:#e0dfe6;border-radius:5px;padding:5px 8px;font-size:11px;outline:none;font-family:'JetBrains Mono',monospace">
+        <button onclick="addBlacklist()" style="padding:5px 12px;border-radius:5px;border:1px solid rgba(255,0,60,0.25);background:rgba(255,0,60,0.06);color:#ff4d6d;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace">Block</button>
       </div>
+      <div id="bl-list" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#4a4a56;word-break:break-all"></div>
     </div>
-    <div class="card fadein" style="padding:20px">
-      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8b90a0;text-transform:uppercase;letter-spacing:.09em;margin-bottom:14px">Engine Version</div>
-      <div style="font-size:14px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#adc6ff">v1.0.0</div>
-      <div style="font-size:11px;color:#8b90a0;margin-top:4px">KALKI WAF · Sudarshana Protocol</div>
+    <div class="card fadein" style="padding:14px">
+      <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">System</div>
+      <div style="font-size:11px;font-family:'JetBrains Mono',monospace" id="sys-info"><div style="color:#4a4a56">Loading...</div></div>
     </div>
   </div>
 </div>
 
+  </div><!-- /content-inner -->
   </div><!-- /content -->
+
+  <!-- Ticker -->
+  <div id="ticker">
+    <span style="color:#00dddd;display:flex;align-items:center;gap:4px"><span style="width:4px;height:4px;border-radius:50%;background:#4edea3;display:inline-block;animation:pulse 2s infinite"></span>KALKI v3.0</span>
+    <span style="color:#4a4a56">|</span>
+    <span style="color:#6a6a78" id="ticker-posture">Posture: Standard</span>
+    <span style="color:#4a4a56">|</span>
+    <span style="color:#6a6a78" id="ticker-req">Req/s: —</span>
+    <span style="color:#4a4a56">|</span>
+    <span style="color:#6a6a78" id="ticker-cpu">CPU: —</span>
+    <span style="color:#4a4a56">|</span>
+    <span style="color:#6a6a78" id="ticker-mem">Mem: —</span>
+    <span style="color:#4a4a56">|</span>
+    <span style="color:#6a6a78" id="ticker-rules">Rules: —</span>
+    <span style="flex:1"></span>
+    <span style="color:#3a3a46" id="ticker-time"></span>
+  </div>
+
 </div><!-- /main -->
 </div><!-- /shell -->
 
 <script>
-// ─── Background 2D Particle Field ──────────────────────────────────────
-(function(){
-  var c=document.getElementById('bg-canvas'),x=c.getContext('2d');
-  function r(){c.width=innerWidth;c.height=innerHeight};
-  r();window.addEventListener('resize',r);
-  var n=150,ps=[];
-  for(var i=0;i<n;i++) ps.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,s:0.2+Math.random()*0.8,v:0.1+Math.random()*0.3});
-  (function a(){requestAnimationFrame(a);
-    x.clearRect(0,0,c.width,c.height);
-    ps.forEach(function(p){
-      p.y-=p.v;p.x+=Math.sin(p.y*0.01)*0.2;
-      if(p.y<0){p.y=c.height;p.x=Math.random()*c.width}
-      x.beginPath();x.arc(p.x,p.y,p.s*1.5,0,Math.PI*2);
-      x.fillStyle='rgba(75,142,255,'+(0.1+p.s*0.2)+')';x.fill();
-    });
-  })();
-})();
+// ─── Chart.js defaults ─────────────────────────────────────────────
+Chart.defaults.color = '#6a6a78';
+Chart.defaults.font.family = "'JetBrains Mono',monospace";
+Chart.defaults.plugins.legend.display = false;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(12,12,18,0.95)';
+Chart.defaults.plugins.tooltip.borderColor = 'rgba(0,221,221,0.15)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.titleColor = '#00dddd';
+Chart.defaults.plugins.tooltip.bodyColor = '#e0dfe6';
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
 
-// ─── Global Threat Radar (2D Canvas) ─────────────────────────────────
-(function(){
-  var wrap=document.getElementById('globe-wrap');
-  var canvas=document.getElementById('globe-canvas');
-  if (!wrap||!canvas) return;
-  var x=canvas.getContext('2d');
-  function W(){return wrap.clientWidth}
-  function H(){return wrap.clientHeight}
-  canvas.width=W();canvas.height=H();
+// ─── State ─────────────────────────────────────────────────────────
+const SECS = ['overview','siem','hids','fim','sca','vuln','response','agents','rules','settings'];
+const TITLES = {overview:'overview',siem:'siem',hids:'hids',fim:'fim',sca:'sca',vuln:'vuln',response:'response',rules:'rules',settings:'settings'};
+let TICK_DATA = {};
 
-  // Geo coord → screen (radar projection)
-  function toScreen(lat,lon){
-    var cx=canvas.width/2, cy=canvas.height/2, r=Math.min(cx,cy)-12;
-    var phi=(90-lat)*Math.PI/180, theta=(lon+180)*Math.PI/180;
-    var x2=-r*Math.sin(phi)*Math.cos(theta);
-    var y2=r*Math.cos(phi);
-    return {x:cx+x2*0.85, y:cy+y2*0.85};
-  }
-
-  // Active threat markers
-  var threats=[];
-  var arcs=[];
-
-  // Expose API
-  window.globeScene={
-    toScreen:toScreen,
-    addThreat:function(lat,lon,label,color){threats.push({lat:lat,lon:lon,label:label||'',color:color||'#ff003c',born:Date.now(),phase:Math.random()*6.28})},
-    addArc:function(lat,lon,color){arcs.push({lat:lat,lon:lon,color:color||'#ff003c',born:Date.now(),phase:Math.random()*6.28})}
-  };
-
-  // Firewall position
-  var fwLat=37.8,fwLon=-122.4;
-
-  // Animation
-  var t=0;
-  (function anim(){
-    requestAnimationFrame(anim);t+=0.02;
-    var w=canvas.width,h=canvas.height;
-    if(w!==wrap.clientWidth||h!==wrap.clientHeight){canvas.width=wrap.clientWidth;canvas.height=wrap.clientHeight;w=canvas.width;h=canvas.height}
-    var cx=w/2,cy=h/2,rmax=Math.min(cx,cy)-12;
-
-    // Dark background
-    x.fillStyle='#0a0e1a';x.fillRect(0,0,w,h);
-
-    // Radar rings
-    for(var ri=0;ri<5;ri++){
-      var rr=rmax*(ri+1)/5;
-      x.beginPath();x.arc(cx,cy,rr,0,Math.PI*2);
-      x.strokeStyle='rgba(75,142,255,'+(0.04+ri*0.02)+')';x.lineWidth=1;
-      x.stroke();
-    }
-
-    // Crosshairs
-    x.beginPath();x.moveTo(cx-rmax,cy);x.lineTo(cx+rmax,cy);
-    x.moveTo(cx,cy-rmax);x.lineTo(cx,cy+rmax);
-    x.strokeStyle='rgba(75,142,255,0.06)';x.stroke();
-
-    // Globe outline
-    x.beginPath();x.arc(cx,cy,rmax,0,Math.PI*2);
-    x.strokeStyle='rgba(75,142,255,0.12)';x.lineWidth=1.5;
-    x.stroke();
-
-    // Scan line rotating
-    var sa=t*0.5;
-    x.beginPath();x.moveTo(cx,cy);x.arc(cx,cy,rmax,sa-0.15,sa+0.15);
-    x.closePath();x.fillStyle='rgba(75,142,255,0.04)';x.fill();
-    x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.cos(sa)*rmax,cy+Math.sin(sa)*rmax);
-    x.strokeStyle='rgba(75,142,255,0.15)';x.lineWidth=1;x.stroke();
-
-    // Glow pulse ring
-    var pr=rmax*(0.8+0.15*Math.sin(t*0.7));
-    x.beginPath();x.arc(cx,cy,pr,0,Math.PI*2);
-    x.strokeStyle='rgba(75,142,255,'+(0.05+0.04*Math.sin(t*0.7))+')';x.lineWidth=2;x.stroke();
-
-    // Draw firewall position (center marker)
-    var fwS=toScreen(fwLat,fwLon);
-    var pulse=0.5+0.5*Math.sin(t*2);
-    x.beginPath();x.arc(fwS.x,fwS.y,4+pulse*4,0,Math.PI*2);
-    x.fillStyle='rgba(78,222,163,'+(0.3+0.3*pulse)+')';x.fill();
-    x.beginPath();x.arc(fwS.x,fwS.y,8+pulse*6,0,Math.PI*2);
-    x.strokeStyle='rgba(78,222,163,'+(0.2+0.2*pulse)+')';x.lineWidth=1.5;x.stroke();
-    x.font='9px "JetBrains Mono",monospace';x.fillStyle='rgba(78,222,163,0.6)';
-    x.textAlign='center';x.fillText('WAF',fwS.x,fwS.y-12);
-
-    // Draw arcs
-    var now=Date.now();
-    arcs=arcs.filter(function(a){return(now-a.born)<12000});
-    arcs.forEach(function(a){
-      var src=toScreen(a.lat,a.lon);
-      var age2=(now-a.born)/10000;
-      var op=Math.max(0,1-age2);
-      if(op<0.01)return;
-      var mid={x:(src.x+fwS.x)/2+(Math.random()-0.5)*10-20, y:(src.y+fwS.y)/2-30+Math.sin(t*0.5+a.phase)*10};
-      x.beginPath();x.moveTo(src.x,src.y);
-      x.quadraticCurveTo(mid.x,mid.y,fwS.x,fwS.y);
-      x.strokeStyle=a.color.replace(')',','+op*0.4+')').replace('rgb','rgba');
-      x.lineWidth=1.5;x.stroke();
-    });
-
-    // Draw threat dots
-    threats=threats.filter(function(t2){return(now-t2.born)<12000});
-    threats.forEach(function(t2){
-      var s=toScreen(t2.lat,t2.lon);
-      var age3=(now-t2.born)/10000;
-      var op=Math.max(0,1-age3);
-      if(op<0.01)return;
-      var rp=2+Math.sin(t*3+t2.phase)*1.5;
-      x.beginPath();x.arc(s.x,s.y,rp,0,Math.PI*2);
-      x.fillStyle=t2.color.replace(')',','+op+')').replace('rgb','rgba');
-      x.fill();
-      // Glow ring
-      x.beginPath();x.arc(s.x,s.y,rp*3,0,Math.PI*2);
-      x.strokeStyle=t2.color.replace(')',','+op*0.3+')').replace('rgb','rgba');
-      x.lineWidth=1;x.stroke();
-      // Label
-      if(t2.label&&age3<0.5){
-        x.font='8px "JetBrains Mono",monospace';
-        x.fillStyle=t2.color.replace(')',','+op+')').replace('rgb','rgba');
-        x.textAlign='center';x.fillText(t2.label,s.x,s.y-8);
-      }
-    });
-
-    // Threat count
-    x.font='bold 22px "JetBrains Mono",monospace';
-    x.fillStyle='rgba(255,255,255,0.08)';x.textAlign='center';
-    x.fillText(threats.length+' ACTIVE',cx,cy+rmax+18);
-    x.font='9px "JetBrains Mono",monospace';
-    x.fillStyle='rgba(255,255,255,0.04)';
-    x.fillText('GLOBAL THREAT LEVEL',cx,cy+rmax+30);
-
-    requestAnimationFrame(anim);
-  })();
-})();
-
-  var ro=new ResizeObserver(function(){
-    renderer.setSize(W(),H());
-    cam.aspect=W()/H();cam.updateProjectionMatrix();
-  });
-  ro.observe(wrap);
-})();
-
-  const ro=new ResizeObserver(()=>{
-    renderer.setSize(W(),H());
-    cam.aspect=W()/H();cam.updateProjectionMatrix();
-  });
-  ro.observe(wrap);
-})();
-
-// ─── Navigation ───────────────────────────────────────────────────────
-const SECS=['dashboard','rules','incidents','sandbox','settings'];
-const TITLES={dashboard:'Geo-Intelligence',rules:'WAF Rules',incidents:'Incidents',sandbox:'Kalki AI',settings:'System Logs'};
-
+// ─── Navigation ────────────────────────────────────────────────────
 function nav(el){
-  const sec=el.dataset.sec;
-  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  const sec = el.dataset.sec;
+  document.querySelectorAll('.side-icon').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
-  SECS.forEach(s=>{
-    const el2=document.getElementById('sec-'+s);
-    el2.classList.remove('show');
-    el2.style.display='none';
+  SECS.forEach(s => {
+    const e = document.getElementById('sec-'+s);
+    e.classList.remove('active'); e.style.display = 'none';
   });
-  const target=document.getElementById('sec-'+sec);
-  target.classList.add('show');
-  target.style.display='contents';
-  document.getElementById('page-title').textContent=TITLES[sec];
-  if(sec==='rules') loadRules();
-  if(sec==='incidents') loadIncidents();
-  if(window.innerWidth<700) document.getElementById('sidebar').classList.remove('open');
+  const t = document.getElementById('sec-'+sec);
+  t.classList.add('active'); t.style.display = 'contents';
+  document.getElementById('page-title').textContent = '/'+sec;
+  loadSection(sec);
 }
 
-function toggleSb(){
-  document.getElementById('sidebar').classList.toggle('open');
+async function loadSection(sec){
+  switch(sec){
+    case 'overview': loadOverview(); break;
+    case 'siem': loadSiem(); break;
+    case 'hids': loadHids(); break;
+    case 'fim': loadFim(); break;
+    case 'sca': loadSca(); break;
+    case 'vuln': loadVuln(); break;
+    case 'response': loadResponse(); break;
+    case 'agents': loadAgents(); break;
+    case 'rules': loadRules(); break;
+    case 'settings': loadSettings(); break;
+  }
 }
 
-// Show menu button on mobile
-if(window.innerWidth<700) document.getElementById('menu-btn').style.display='flex';
-window.addEventListener('resize',()=>{
-  document.getElementById('menu-btn').style.display=window.innerWidth<700?'flex':'none';
-});
+// ─── Clock & Ticker ────────────────────────────────────────────────
+setInterval(() => {
+  const n = new Date();
+  document.getElementById('clock').textContent = n.toLocaleTimeString('en-US',{hour12:false});
+  document.getElementById('ticker-time').textContent = n.toLocaleTimeString('en-US',{hour12:false});
+}, 1000);
 
-// ─── Clock ────────────────────────────────────────────────────────────
-setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour12:false})},1000);
-document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});
+function updateTicker(d){
+  if(!d) return;
+  if(d.posture) document.getElementById('ticker-posture').textContent = 'Posture: '+d.posture;
+  const m = d.metrics || {};
+  document.getElementById('ticker-req').textContent = 'Req/s: '+(m.requests_per_second||'—');
+  document.getElementById('ticker-cpu').textContent = 'CPU: '+(m.cpu_percent?m.cpu_percent.toFixed(1)+'%':'—');
+  document.getElementById('ticker-mem').textContent = 'Mem: '+(m.memory_mb?m.memory_mb.toFixed(0)+' MB':'—');
+  document.getElementById('ticker-rules').textContent = 'Rules: '+(d.active_rules||'—');
+  TICK_DATA = d;
+}
 
-// ─── Traffic Chart Animation ──────────────────────────────────────────
-setInterval(()=>{
-  document.querySelectorAll('#traffic-chart .cbar').forEach(b=>{
-    const h=15+Math.random()*85;
-    b.style.height=h+'%';
-    b.style.background=h>70?'rgba(255,0,60,0.5)':h>50?'rgba(255,185,95,0.35)':'rgba(173,198,255,0.3)';
-  });
-},2800);
-
-// ─── API ──────────────────────────────────────────────────────────────
+// ─── API ───────────────────────────────────────────────────────────
 async function api(path,opts={}){
-  const r=await fetch(path,opts);
+  const r = await fetch(path, opts);
   if(!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
-// ─── Telemetry ────────────────────────────────────────────────────────
-async function loadTelemetry(){
-  try{
-    const d=await api('/api/v1/threat-intel/alerts');
-    const m=d.metrics||{};
-    document.getElementById('m-blocked').textContent=m.total_blocked??0;
-    document.getElementById('m-ingress').textContent=m.total_ingress??0;
-    document.getElementById('m-rules').textContent=m.active_rules_count??0;
-    document.getElementById('m-sqli').textContent=m.sqli_count??0;
-    document.getElementById('m-xss').textContent=m.xss_count??0;
-    document.getElementById('posture-label').textContent=m.posture??'Standard Posture';
-    document.getElementById('upstream-disp').textContent=m.upstream_url??'—';
-    document.getElementById('db-disp').textContent=m.db_type??'—';
-    syncPosture(m.posture);
-    renderFeed(d.incidents||[]);
-  }catch(e){console.error('Telemetry:',e)}
+function severityTag(s){
+  if(!s) return '<span class="tag t-info">—</span>';
+  const c = s.toLowerCase();
+  if(c==='critical') return '<span class="tag t-critical">CRITICAL</span>';
+  if(c==='high') return '<span class="tag t-high">HIGH</span>';
+  if(c==='medium') return '<span class="tag t-medium">MEDIUM</span>';
+  if(c==='low') return '<span class="tag t-low">LOW</span>';
+  return '<span class="tag t-info">'+s+'</span>';
 }
 
-function catTag(cat){
-  if(!cat) return `<span class="tag t-other">—</span>`;
-  const c=cat.toUpperCase();
-  if(c==='SQLI') return `<span class="tag t-sqli">SQLi</span>`;
-  if(c==='XSS') return `<span class="tag t-xss">XSS</span>`;
-  return `<span class="tag t-rfi">${cat}</span>`;
-}
-function actTag(a){
-  if(!a) return `<span class="tag t-other">—</span>`;
-  if(a==='Blocked') return `<span class="tag t-blocked">Blocked</span>`;
-  if(a==='Flagged') return `<span class="tag t-flagged">Flagged</span>`;
-  return `<span class="tag t-allowed">${a}</span>`;
+function catTag(c){
+  if(!c) return '<span class="tag t-info">—</span>';
+  const u = c.toUpperCase();
+  if(u==='SQLI') return '<span class="tag t-high">SQLi</span>';
+  if(u==='XSS') return '<span class="tag t-medium">XSS</span>';
+  if(u==='RFI'||u==='LFI') return '<span class="tag t-critical">'+c+'</span>';
+  return '<span class="tag t-info">'+c+'</span>';
 }
 
-function addThreatMarker(lat, lon, label, color='#ff003c'){
-  const globe = window.globeScene;
-  if (!globe || !globe.addThreat) return;
-  globe.addThreat(lat, lon, label, color);
+function timeAgo(ts){
+  if(!ts) return '';
+  const s = Math.floor((Date.now() - new Date(ts+'Z').getTime())/1000);
+  if(s<0) return 'just now';
+  if(s<60) return s+'s';
+  if(s<3600) return Math.floor(s/60)+'m';
+  if(s<86400) return Math.floor(s/3600)+'h';
+  return Math.floor(s/86400)+'d';
 }
 
-function addLiveArc(incident){
-  const globe = window.globeScene;
-  if (!globe || !globe.addArc) return;
-  
-  const geo = incident.geo || {};
-  const lat = geo.lat;
-  const lon = geo.lon;
-  if (lat == null || lon == null) return;
-  
-  const isThreat = incident.mitigation_action === 'Blocked' || incident.threat_category === 'SQLi' || incident.threat_category === 'XSS';
-  const countryLabel = geo.country || (geo.city ? geo.city : '');
-  const markerColor = isThreat ? '#ff003c' : '#4edea3';
-  addThreatMarker(lat, lon, countryLabel ? countryLabel + ' ' + incident.threat_category : '', markerColor);
-  
-  globe.addArc(lat, lon, isThreat ? '#ff003c' : '#4edea3');
+function emptyState(icon, msg, sub, actionLabel, actionFn){
+  return `<div class="empty-state">
+    <span class="material-symbols-outlined icon" style="font-variation-settings:'FILL' 0">${icon}</span>
+    <div class="msg">${msg}</div>
+    ${sub ? '<div class="sub">'+sub+'</div>' : ''}
+    ${actionFn ? '<button class="action" onclick="'+actionFn+'">'+actionLabel+'</button>' : ''}
+  </div>`;
 }
-    ctx.font = 'bold 18px "JetBrains Mono", monospace';
-    ctx.fillStyle = '#ff6b8a';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, 64, 24);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
-    const sprite = new THREE.Sprite(spriteMat);
-    sprite.position.copy(v);
-    sprite.position.multiplyScalar(1.08);
-    sprite.scale.set(0.18, 0.068, 1);
-    sprite.userData = { born: Date.now() };
-    globe.scene.add(sprite);
-    globe.liveLabels.push(sprite);
-    
-    // Keep max 30 labels
-    if (globe.liveLabels.length > 30) {
-      const old = globe.liveLabels.shift();
-      globe.scene.remove(old);
+
+// Sparkline renderer
+function sparkline(canvasId, data, color){
+  const c = document.getElementById(canvasId);
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  const w = c.width = c.offsetWidth || 60;
+  const h = c.height = 20;
+  ctx.clearRect(0,0,w,h);
+  if(!data || data.length<2) return;
+  const max = Math.max(...data,1);
+  const step = w/(data.length-1);
+  ctx.beginPath();
+  data.forEach((v,i) => {
+    const x = i*step, y = h - (v/max)*h;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = color || '#00dddd';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  // Fill
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  ctx.fillStyle = (color||'#00dddd').replace(')',',0.06)').replace('rgb','rgba');
+  ctx.fill();
+}
+
+function metricCards(items, sparkData){
+  return items.map((i,idx) => {
+    const id = 'spark-'+(Math.random()*1e5|0);
+    return `<div class="mc mc-glow">
+      <div class="mc-lbl">${i.label}</div>
+      <div class="mc-val" style="color:${i.color||'#e0dfe6'}">${i.val}</div>
+      ${sparkData ? '<canvas id="'+id+'" class="spark-canvas"></canvas>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// GLOBE RADAR (2D Canvas)
+// ════════════════════════════════════════════════════════════════════
+let globeThreats = [], globeArcs = [], globeTime = 0;
+
+function initGlobe(){
+  const wrap = document.getElementById('globe-wrap');
+  const canvas = document.getElementById('globe-canvas');
+  if(!wrap||!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize(){
+    W = wrap.clientWidth; H = wrap.clientHeight;
+    canvas.width = W; canvas.height = H;
+  }
+  resize();
+  new ResizeObserver(resize).observe(wrap);
+
+  function toScreen(lat, lon){
+    const cx = W/2, cy = H/2, r = Math.min(cx,cy)-16;
+    const phi = (90-lat)*Math.PI/180;
+    const theta = (lon+180)*Math.PI/180;
+    return {x: cx - r*Math.sin(phi)*Math.cos(theta)*0.9, y: cy + r*Math.cos(phi)*0.85};
+  }
+
+  function addThreat(lat, lon, label, color){
+    globeThreats.push({lat,lon,label,color,phase:Math.random()*6.28,born:Date.now()});
+  }
+  function addArc(lat, lon, color){
+    globeArcs.push({lat,lon,color,phase:Math.random()*6.28,born:Date.now()});
+  }
+
+  window.globeAPI = { addThreat, addArc, toScreen };
+
+  const fwLat = 37.8, fwLon = -122.4;
+  let t = 0;
+
+  function draw(){
+    requestAnimationFrame(draw);
+    t += 0.02; globeTime++;
+    if(canvas.width !== wrap.clientWidth || canvas.height !== wrap.clientHeight) resize();
+    const cx = W/2, cy = H/2, rmax = Math.min(cx,cy)-16;
+
+    ctx.clearRect(0,0,W,H);
+
+    // Radar rings
+    for(let ri=0;ri<5;ri++){
+      const rr = rmax*(ri+1)/5;
+      ctx.beginPath(); ctx.arc(cx,cy,rr,0,Math.PI*2);
+      ctx.strokeStyle = 'rgba(0,221,221,'+(0.03+ri*0.015)+')'; ctx.lineWidth = 0.5;
+      ctx.stroke();
     }
+
+    // Crosshairs
+    ctx.beginPath();
+    ctx.moveTo(cx-rmax,cy); ctx.lineTo(cx+rmax,cy);
+    ctx.moveTo(cx,cy-rmax); ctx.lineTo(cx,cy+rmax);
+    ctx.strokeStyle = 'rgba(0,221,221,0.04)'; ctx.stroke();
+
+    // Globe outline
+    ctx.beginPath(); ctx.arc(cx,cy,rmax,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(0,221,221,0.08)'; ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Scan line
+    const sa = t*0.6;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,rmax,sa-0.2,sa+0.2);
+    ctx.closePath(); ctx.fillStyle = 'rgba(0,221,221,0.03)'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(sa)*rmax, cy+Math.sin(sa)*rmax);
+    ctx.strokeStyle = 'rgba(0,221,221,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Pulse ring
+    const pr = rmax*(0.75+0.2*Math.sin(t*0.8));
+    ctx.beginPath(); ctx.arc(cx,cy,pr,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(0,221,221,'+(0.03+0.03*Math.sin(t*0.8))+')'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Firewall position
+    const fw = toScreen(fwLat, fwLon);
+    const pulse = 0.4+0.6*Math.sin(t*2);
+    ctx.beginPath(); ctx.arc(fw.x,fw.y,2+pulse*2,0,Math.PI*2);
+    ctx.fillStyle = 'rgba(78,222,163,'+(0.3+0.3*pulse)+')'; ctx.fill();
+    ctx.beginPath(); ctx.arc(fw.x,fw.y,6+pulse*4,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(78,222,163,'+(0.15+0.15*pulse)+')'; ctx.lineWidth = 0.5; ctx.stroke();
+    ctx.font = '8px "JetBrains Mono",monospace'; ctx.fillStyle = 'rgba(78,222,163,0.5)';
+    ctx.textAlign = 'center'; ctx.fillText('WAF',fw.x,fw.y-8);
+
+    // Arcs
+    const now = Date.now();
+    globeArcs = globeArcs.filter(a => (now-a.born)<15000);
+    globeArcs.forEach(a => {
+      const src = toScreen(a.lat,a.lon);
+      const age = (now-a.born)/10000;
+      const op = Math.max(0, 1-age);
+      if(op<0.01) return;
+      const mid = {x:(src.x+fw.x)/2+(Math.sin(t*0.5+a.phase)-0.5)*20, y:(src.y+fw.y)/2-20+Math.sin(t*0.5+a.phase)*12};
+      ctx.beginPath(); ctx.moveTo(src.x,src.y);
+      ctx.quadraticCurveTo(mid.x,mid.y,fw.x,fw.y);
+      ctx.strokeStyle = a.color.replace(')','),'+op*0.3+')').replace('rgb','rgba');
+      ctx.lineWidth = 0.8; ctx.stroke();
+    });
+
+    // Threats
+    globeThreats = globeThreats.filter(t2 => (now-t2.born)<15000);
+    globeThreats.forEach(t2 => {
+      const s = toScreen(t2.lat,t2.lon);
+      const age = (now-t2.born)/10000;
+      const op = Math.max(0, 1-age);
+      if(op<0.01) return;
+      const rp = 1.5+Math.sin(t*3+t2.phase)*1;
+      ctx.beginPath(); ctx.arc(s.x,s.y,rp,0,Math.PI*2);
+      ctx.fillStyle = t2.color.replace(')','),'+op+')').replace('rgb','rgba');
+      ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x,s.y,rp*2.5,0,Math.PI*2);
+      ctx.strokeStyle = t2.color.replace(')','),'+op*0.2+')').replace('rgb','rgba');
+      ctx.lineWidth = 0.5; ctx.stroke();
+      if(t2.label && age<0.4){
+        ctx.font = '7px "JetBrains Mono",monospace';
+        ctx.fillStyle = t2.color.replace(')','),'+op+')').replace('rgb','rgba');
+        ctx.textAlign = 'center'; ctx.fillText(t2.label,s.x,s.y-5);
+      }
+    });
+
+    // Active count
+    ctx.font = '10px "JetBrains Mono",monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.textAlign = 'center';
+    ctx.fillText(globeThreats.length+' threats',cx,cy+rmax+16);
   }
-  
-  // Keep track for cleanup
-  globe.liveMarkers.push(ring);
-  globe.liveMarkers.push(dot);
-  if (globe.liveMarkers.length > 60) {
-    const old = globe.liveMarkers.shift();
-    globe.scene.remove(old);
+  draw();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SSE
+// ════════════════════════════════════════════════════════════════════
+function startSSE(){
+  const evtSource = new EventSource('/api/v1/stream');
+  evtSource.onmessage = function(e){
+    try{
+      const d = JSON.parse(e.data);
+      updateLiveStats(d);
+      updateTicker(d);
+    }catch(ex){}
+  };
+  evtSource.onerror = function(){};
+}
+
+function updateLiveStats(d){
+  if(d.posture){
+    document.getElementById('posture-label').textContent = d.posture;
+    const dot = document.getElementById('posture-dot');
+    dot.style.background = d.posture==='Under Attack'?'#ff4d6d':d.posture==='Monitor Only'?'#ffb95f':'#4edea3';
   }
 }
 
-function addLiveArc(incident){
-  const globe = window.globeScene;
-  if (!globe || !globe.makeArc || !globe.ll2v || !globe.firewallPos) return;
-  
-  const geo = incident.geo || {};
-  const lat = geo.lat;
-  const lon = geo.lon;
-  if (lat == null || lon == null) return;
-  
-  const srcVec = globe.ll2v(lat, lon, 1.05);
-  const dstVec = globe.firewallPos;
-  if (!dstVec) return;
-  
-  const isThreat = incident.mitigation_action === 'Blocked' || incident.threat_category === 'SQLi' || incident.threat_category === 'XSS';
-  const countryLabel = geo.country || (geo.city ? geo.city : '');
-  const markerColor = isThreat ? 0xff003c : 0x4edea3;
-  addThreatMarker(lat, lon, countryLabel ? countryLabel + ' ' + incident.threat_category : '', markerColor);
-  
-  const color = isThreat ? 0xff003c : 0x4edea3;
-  const {mesh, dot} = globe.makeArc(srcVec, dstVec, color, isThreat ? 0.7 : 0.35);
-  mesh.userData = { type: incident.threat_category, created: Date.now() };
-  dot.userData.born = Date.now();
-  globe.scene.add(mesh);
-  globe.scene.add(dot);
-  globe.liveArcs.push({mesh, dot});
-  
-  if (globe.liveArcs.length > 25) {
-    const old = globe.liveArcs.shift();
-    globe.scene.remove(old.mesh);
-    globe.scene.remove(old.dot);
-  }
+// ════════════════════════════════════════════════════════════════════
+// OVERVIEW
+// ════════════════════════════════════════════════════════════════════
+async function loadOverview(){
+  try{
+    const [tel, siemD] = await Promise.all([
+      api('/api/v1/threat-intel/alerts'),
+      api('/api/v1/siem/dashboard').catch(()=>({}))
+    ]);
+    const m = tel.metrics || {};
+    document.getElementById('ov-metrics').innerHTML = metricCards([
+      {label:'Blocked (24h)',val:(m.total_blocked||0).toLocaleString(),color:'#ff4d6d'},
+      {label:'Ingress',val:(m.total_ingress||0).toLocaleString(),color:'#00dddd'},
+      {label:'SQLi',val:(m.sqli_count||0).toLocaleString(),color:'#fe00fe'},
+      {label:'XSS',val:(m.xss_count||0).toLocaleString(),color:'#ffb95f'},
+    ], true);
+
+    // HIDS card
+    const hidsStats = siemD.hids || {};
+    document.getElementById('ov-hids').innerHTML = hidsStats.total
+      ? `<div style="display:flex;flex-direction:column;gap:4px;padding:4px 0">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+            <span style="color:#6a6a78;font-size:10px">Total</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:#00dddd;font-size:11px">${hidsStats.total}</span>
+          </div>
+          ${Object.entries(hidsStats.by_severity||{}).map(([k,v])=>`
+            <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+              <span style="color:#6a6a78;font-size:10px;text-transform:capitalize">${k}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px">${v}</span>
+            </div>
+          `).join('')}
+          <div style="margin-top:4px;height:3px;background:#1a1a24;border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100,hidsStats.total)}%;background:linear-gradient(90deg,#00dddd,#4edea3);border-radius:2px"></div>
+          </div>
+        </div>`
+      : emptyState('dns','No HIDS events','System logs will appear here');
+
+    // Response card
+    const respStats = siemD.active_response || {};
+    document.getElementById('ov-response').innerHTML = respStats.total_executions
+      ? `<div style="display:flex;flex-direction:column;gap:4px;padding:4px 0">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+            <span style="color:#6a6a78;font-size:10px">Executions</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:#fe00fe;font-size:16px;font-weight:700">${respStats.total_executions}</span>
+          </div>
+          ${Object.entries(respStats.by_status||{}).map(([k,v])=>`
+            <div style="display:flex;justify-content:space-between;padding:3px 0">
+              <span style="color:#6a6a78;font-size:10px;text-transform:capitalize">${k}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${k==='failed'?'#ff4d6d':k==='success'?'#4edea3':'#6a6a78'}">${v}</span>
+            </div>
+          `).join('')}
+        </div>`
+      : emptyState('flash_on','No responses','Playbooks ready to execute');
+
+    // Feed
+    const feedEl = document.getElementById('ov-feed');
+    const incidents = tel.incidents || [];
+    if(!incidents.length){
+      feedEl.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="padding:16px"><span class="material-symbols-outlined icon" style="font-size:28px">radar</span><div class="msg">No events</div><div class="sub">Traffic monitoring active</div></div></td></tr>';
+    } else {
+      feedEl.innerHTML = incidents.slice(0,15).map(i => `
+        <tr>
+          <td style="color:#3a3a46;font-size:10px">${timeAgo(i.timestamp)}</td>
+          <td style="color:#00dddd;font-size:10px">${i.source_ip||'—'}</td>
+          <td>${catTag(i.threat_category)}</td>
+          <td style="font-size:10px;color:#6a6a78;max-width:200px;overflow:hidden;text-overflow:ellipsis">${i.target_uri||'—'}</td>
+          <td>${i.mitigation_action==='Blocked'?'<span class="tag t-high">Blocked</span>':i.mitigation_action==='Flagged'?'<span class="tag t-medium">Flagged</span>':'<span class="tag t-low">Allowed</span>'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Charts
+    buildDistChart(tel);
+    buildTimeline(tel);
+
+    // Globe: add incidents as threats
+    incidents.slice(0,20).forEach(i => {
+      if(i.geo && i.geo.lat != null && i.geo.lon != null && window.globeAPI){
+        const isThreat = i.mitigation_action==='Blocked' || i.threat_category==='SQLi' || i.threat_category==='XSS';
+        window.globeAPI.addThreat(i.geo.lat, i.geo.lon, i.geo.country||'', isThreat?'#ff4d6d':'#4edea3');
+        window.globeAPI.addArc(i.geo.lat, i.geo.lon, isThreat?'#ff4d6d':'#00dddd');
+      }
+    });
+  }catch(e){console.error('Overview:',e)}
 }
 
-// Track incidents already drawn on globe
-const drawnIncidents = new Set();
-
-function renderFeed(incidents){
-  const tb=document.getElementById('live-log');
-  if(!incidents.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#414755;padding:20px">No incidents recorded</td></tr>';return}
-  tb.innerHTML=incidents.slice(0,15).map(i=>`
-    <tr>
-      <td class="dim">${(i.timestamp||'').toString().slice(0,19)}</td>
-      <td style="color:#adc6ff">${i.source_ip||'—'}</td>
-      <td>${catTag(i.threat_category)}</td>
-      <td class="dim" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${(i.target_uri||'—').slice(0,32)}</td>
-      <td>${actTag(i.mitigation_action)}</td>
-    </tr>`).join('');
-  // Draw arcs for ALL new incidents (not just latest)
-  incidents.forEach(inc => {
-    const key = inc.incident_id || (inc.source_ip + inc.timestamp);
-    if (!drawnIncidents.has(key)) {
-      drawnIncidents.add(key);
-      addLiveArc(inc);
+function buildTimeline(tel){
+  const canvas = document.getElementById('ov-timeline-chart');
+  if(!canvas) return;
+  if(window._tlChart) { window._tlChart.destroy(); }
+  const labels = Array.from({length:24}, (_,i) => i+'h');
+  const data = (tel.timeline || Array(24).fill(0)).slice(-24);
+  window._tlChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: 'Threats', data,
+      borderColor: '#00dddd', backgroundColor: 'rgba(0,221,221,0.06)',
+      fill: true, tension: 0.3, pointRadius: 1.5, pointBackgroundColor: '#00dddd', borderWidth: 1
+    }]},
+    options: {
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.02)' }, ticks: { font: { size: 8 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.02)' }, beginAtZero: true, ticks: { font: { size: 8 } } }
+      }
     }
   });
-  // Keep set from growing unbounded
-  if (drawnIncidents.size > 200) {
-    const arr = [...drawnIncidents];
-    drawnIncidents.clear();
-    arr.slice(-100).forEach(k => drawnIncidents.add(k));
-  }
 }
 
-// ─── Rules ────────────────────────────────────────────────────────────
+function buildDistChart(tel){
+  const canvas = document.getElementById('ov-dist-chart');
+  if(!canvas) return;
+  if(window._distChart) { window._distChart.destroy(); }
+  const cats = tel.breakdown || {SQLi:0,XSS:0,RFI:0,LFI:0,Other:0};
+  const entries = Object.entries(cats).filter(([_,v])=>v>0);
+  if(!entries.length) entries.push(['No Data',1]);
+  window._distChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: entries.map(([k])=>k),
+      datasets: [{
+        data: entries.map(([_,v])=>v),
+        backgroundColor: ['#fe00fe','#ff4d6d','#ffb95f','#00dddd','#4edea3'].slice(0,entries.length),
+        borderColor: 'rgba(6,6,10,0.8)', borderWidth: 2
+      }]
+    },
+    options: {
+      plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 6, font: { size: 9 } } } }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SIEM
+// ════════════════════════════════════════════════════════════════════
+async function loadSiem(){
+  try{
+    const [stats, alerts, rulesList] = await Promise.all([
+      api('/api/v1/siem/stats'),
+      api('/api/v1/siem/alerts?limit=50'),
+      api('/api/v1/siem/run-detection').catch(()=>({alerts:[]}))
+    ]);
+    const totalUnacked = stats.unacknowledged||0;
+    document.getElementById('siem-badge').style.display = totalUnacked>0?'block':'none';
+    document.getElementById('siem-metrics').innerHTML = metricCards([
+      {label:'Total',val:stats.total||0,color:'#00dddd'},
+      {label:'Unacked',val:totalUnacked,color:totalUnacked?'#ff4d6d':'#6a6a78'},
+      {label:'Critical',val:stats.by_severity?.critical||0,color:'#fe00fe'},
+      {label:'High',val:stats.by_severity?.high||0,color:'#ff4d6d'},
+    ], true);
+    document.getElementById('siem-count').textContent = alerts.length+' alerts';
+    const tb = document.getElementById('siem-table-wrap');
+    if(!alerts.length){
+      tb.innerHTML = emptyState('notification_important','No SIEM alerts','Correlation rules are monitoring traffic','Run Detection','loadSiem()');
+    } else {
+      tb.innerHTML = '<table><thead><tr><th>ID</th><th>Rule</th><th>Sev</th><th>Description</th><th>Time</th><th></th></tr></thead><tbody>'+alerts.slice(0,30).map(a => `
+        <tr>
+          <td style="font-size:10px;color:#4a4a56">#${a.id}</td>
+          <td style="color:#00dddd;font-size:10px">${a.rule_name||'—'}</td>
+          <td>${severityTag(a.severity)}</td>
+          <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${a.description||''}</td>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(a.timestamp)}</td>
+          <td>${!a.acked?`<button onclick="ackAlert(${a.id})" style="background:rgba(0,221,221,0.06);border:1px solid rgba(0,221,221,0.15);color:#00dddd;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:8px;font-family:'JetBrains Mono',monospace">ACK</button>`:'<span style="color:#3a3a46;font-size:9px">✓</span>'}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    }
+
+    // Pie
+    const canvas = document.getElementById('siem-pie');
+    if(canvas){
+      if(window._siemPie) window._siemPie.destroy();
+      const bd = stats.by_severity||{};
+      const lbs = Object.keys(bd), vals = Object.values(bd);
+      const cols = {critical:'#fe00fe',high:'#ff4d6d',medium:'#ffb95f',low:'#4edea3',info:'#00dddd'};
+      window._siemPie = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: lbs.length?lbs:['Empty'],
+          datasets: [{ data: vals.length?vals:[1], backgroundColor: vals.length?lbs.map(l=>cols[l]||'#3a3a46'):['#1a1a24'], borderWidth: 2, borderColor: 'rgba(6,6,10,0.8)' }]
+        },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 5, font: {size:8} } } } }
+      });
+    }
+
+    // Rules table
+    const rt = document.getElementById('siem-rules-wrap');
+    const rlist = rulesList.alerts||[];
+    if(rlist.length){
+      rt.innerHTML = '<table><thead><tr><th>Rule</th><th>Description</th><th>Severity</th><th>Threshold</th><th>Status</th></tr></thead><tbody>'+rlist.map(r => `<tr>
+        <td style="color:#00dddd;font-size:10px">${r.rule_name||r.rule_id}</td>
+        <td style="font-size:10px">${r.description||''}</td>
+        <td>${severityTag(r.severity)}</td>
+        <td style="font-size:10px">${r.raw_data?JSON.parse(r.raw_data).threshold||'—':'—'}</td>
+        <td><span class="tag t-info">Active</span></td>
+      </tr>`).join('')+'</tbody></table>';
+    } else {
+      rt.innerHTML = emptyState('rule','No detection rules triggered','Correlation rules are monitoring');
+    }
+  }catch(e){console.error('SIEM:',e)}
+}
+
+async function ackAlert(id){
+  try{ await api('/api/v1/siem/alerts/'+id+'/ack',{method:'POST'}); loadSiem(); }
+  catch(e){console.error(e)}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// HIDS
+// ════════════════════════════════════════════════════════════════════
+async function loadHids(){
+  try{
+    const [stats, alerts] = await Promise.all([
+      api('/api/v1/hids/stats'), api('/api/v1/hids/alerts?limit=50')
+    ]);
+    document.getElementById('hids-metrics').innerHTML = metricCards([
+      {label:'Total',val:stats.total||0,color:'#00dddd'},
+      {label:'Auth Failures',val:(stats.by_type?.auth_failure||0),color:'#ff4d6d'},
+      {label:'Log Types',val:Object.keys(stats.by_type||{}).length||0,color:'#ffb95f'},
+    ], true);
+    document.getElementById('hids-count').textContent = alerts.length+' alerts';
+    const tb = document.getElementById('hids-table-wrap');
+    if(!alerts.length){
+      tb.innerHTML = emptyState('dns','No HIDS alerts','System log monitoring active','Ingest Test Log','testHidsIngest()');
+    } else {
+      tb.innerHTML = '<table><thead><tr><th>Time</th><th>Source</th><th>Type</th><th>Match</th><th>Sev</th></tr></thead><tbody>'+alerts.slice(0,30).map(a => `
+        <tr>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(a.timestamp)}</td>
+          <td style="color:#00dddd;font-size:10px">${a.log_source||'—'}</td>
+          <td><span class="tag ${a.log_type==='auth_failure'?'t-high':a.log_type==='auth_success'?'t-low':'t-info'}">${a.log_type||'—'}</span></td>
+          <td style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis">${a.matched_rule||''}</td>
+          <td>${severityTag(a.severity)}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    }
+
+    // HIDS pie chart
+    const canvas = document.getElementById('hids-pie');
+    if(canvas){
+      if(window._hidsPie) window._hidsPie.destroy();
+      const bt = stats.by_type||{};
+      const lbs = Object.keys(bt), vals = Object.values(bt);
+      if(!lbs.length){ lbs.push('No Data'); vals.push(1); }
+      window._hidsPie = new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels: lbs, datasets: [{ data: vals, backgroundColor: ['#ff4d6d','#4edea3','#00dddd','#ffb95f','#fe00fe'].slice(0,lbs.length), borderWidth: 2, borderColor: 'rgba(6,6,10,0.8)' }] },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 5, font: {size:8} } } } }
+      });
+    }
+  }catch(e){console.error('HIDS:',e)}
+}
+
+async function testHidsIngest(){
+  const testLines = ['Failed password for root from 203.0.113.42 port 22 ssh2','Accepted password for admin from 10.0.0.1 port 22 ssh2','sudo: COMMAND=/bin/rm -rf /'];
+  for(const line of testLines){
+    await api('/api/v1/hids/ingest?line='+encodeURIComponent(line)+'&source=test');
+  }
+  loadHids();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// FIM
+// ════════════════════════════════════════════════════════════════════
+async function loadFim(){
+  try{
+    const [stats, events] = await Promise.all([
+      api('/api/v1/fim/stats'), api('/api/v1/fim/events?limit=50')
+    ]);
+    document.getElementById('fim-metrics').innerHTML = metricCards([
+      {label:'Events',val:stats.total_events||0,color:'#00dddd'},
+      {label:'Monitored',val:stats.monitored_files||0,color:'#4edea3'},
+      {label:'Modified',val:stats.by_change_type?.modified||0,color:'#ffb95f'},
+    ], true);
+    document.getElementById('fim-count').textContent = events.length+' events';
+    const tb = document.getElementById('fim-table-wrap');
+    if(!events.length){
+      tb.innerHTML = emptyState('folder','No FIM events','File baselines are recorded','Record Baseline','runFimCheck()');
+    } else {
+      tb.innerHTML = '<table><thead><tr><th>Time</th><th>File</th><th>Change</th><th>Old</th><th>New</th></tr></thead><tbody>'+events.slice(0,25).map(e => `
+        <tr>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(e.timestamp)}</td>
+          <td style="color:#00dddd;font-size:10px;max-width:250px;overflow:hidden;text-overflow:ellipsis">${e.file_path||'—'}</td>
+          <td><span class="tag ${e.change_type==='deleted'?'t-critical':e.change_type==='modified'?'t-high':'t-info'}">${e.change_type||'—'}</span></td>
+          <td style="font-size:9px;color:#4a4a56">${(e.old_hash||'').slice(0,10)}</td>
+          <td style="font-size:9px;color:#4a4a56">${(e.new_hash||'').slice(0,10)}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    }
+  }catch(e){console.error('FIM:',e)}
+}
+
+async function runFimCheck(){
+  try{ await api('/api/v1/fim/record-baseline',{method:'POST'}); loadFim(); }
+  catch(e){console.error(e)}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SCA
+// ════════════════════════════════════════════════════════════════════
+async function loadSca(){
+  try{
+    const [stats, results] = await Promise.all([
+      api('/api/v1/sca/stats'), api('/api/v1/sca/results')
+    ]);
+    const score = stats.average_score||0;
+    const canvas = document.getElementById('sca-gauge');
+    if(canvas){
+      if(window._scaGauge) window._scaGauge.destroy();
+      window._scaGauge = new Chart(canvas, {
+        type: 'doughnut',
+        data: { datasets: [{ data: [score, 100-score], backgroundColor: [score>=80?'#4edea3':score>=50?'#ffb95f':'#ff4d6d', '#16161e'], borderWidth: 0, circumference: 270, rotation: 135 }] },
+        options: { cutout: '70%', plugins: { tooltip: { enabled: false }, legend: { display: false } } }
+      });
+    }
+    document.getElementById('sca-score-label').textContent = score>0 ? 'Score: '+score.toFixed(1)+'%' : 'No benchmarks yet';
+
+    const tb = document.getElementById('sca-table-wrap');
+    if(!results.length){
+      tb.innerHTML = emptyState('checklist','No benchmarks run','CIS compliance checks ready','Run Benchmark','runSca()');
+    } else {
+      tb.innerHTML = '<table><thead><tr><th>Benchmark</th><th>Total</th><th>Passed</th><th>Score</th><th>Time</th></tr></thead><tbody>'+results.slice(0,15).map(r => `
+        <tr>
+          <td style="color:#00dddd;font-size:10px">${r.benchmark_id||'—'}</td>
+          <td style="font-size:10px">${r.total_checks||0}</td>
+          <td style="font-size:10px;color:#4edea3">${r.passed_checks||0}</td>
+          <td style="font-size:10px;font-weight:600;color:${r.score>=80?'#4edea3':r.score>=50?'#ffb95f':'#ff4d6d'}">${r.score?.toFixed(1)||'0.0'}%</td>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(r.timestamp)}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    }
+  }catch(e){console.error('SCA:',e)}
+}
+
+async function runSca(){
+  try{ await api('/api/v1/sca/run',{method:'POST'}); loadSca(); }
+  catch(e){console.error(e)}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// VULN
+// ════════════════════════════════════════════════════════════════════
+async function loadVuln(){
+  try{
+    const [stats, vulns, inv] = await Promise.all([
+      api('/api/v1/vuln/stats'), api('/api/v1/vuln/list?limit=50'), api('/api/v1/vuln/inventory')
+    ]);
+    document.getElementById('vuln-metrics').innerHTML = metricCards([
+      {label:'Total CVEs',val:stats.total_vulnerabilities||0,color:'#ff4d6d'},
+      {label:'Critical',val:stats.by_severity?.critical||0,color:'#fe00fe'},
+      {label:'High',val:stats.by_severity?.high||0,color:'#ff4d6d'},
+      {label:'Avg CVSS',val:stats.average_cvss?.toFixed(1)||'—',color:'#00dddd'},
+    ], true);
+    document.getElementById('vuln-count').textContent = vulns.length+' CVEs';
+    const tb = document.getElementById('vuln-table-wrap');
+    if(!vulns.length){
+      tb.innerHTML = emptyState('bug_report','No vulnerabilities','System packages are up to date','Run Scan','runVulnScan()');
+    } else {
+      tb.innerHTML = '<table><thead><tr><th>CVE</th><th>Package</th><th>CVSS</th><th>Severity</th><th>Description</th></tr></thead><tbody>'+vulns.slice(0,25).map(v => `
+        <tr>
+          <td style="color:#00dddd;font-size:10px">${v.cve_id||'—'}</td>
+          <td style="font-size:10px">${v.affected_packages||'—'}</td>
+          <td style="font-size:10px;font-weight:600">${v.cvss_score||'—'}</td>
+          <td>${severityTag(v.severity)}</td>
+          <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${v.description||''}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    }
+
+    const canvas = document.getElementById('vuln-pie');
+    if(canvas){
+      if(window._vulnPie) window._vulnPie.destroy();
+      const bd = stats.by_severity||{}; const lbs = Object.keys(bd), vals = Object.values(bd);
+      if(!lbs.length){ lbs.push('No Data'); vals.push(1); }
+      window._vulnPie = new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels: lbs, datasets: [{ data: vals, backgroundColor: ['#fe00fe','#ff4d6d','#ffb95f','#4edea3','#00dddd'].slice(0,lbs.length), borderWidth: 2, borderColor: 'rgba(6,6,10,0.8)' }] },
+        options: { plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 5, font: {size:8} } } } }
+      });
+    }
+
+    const invTb = document.getElementById('vuln-inv-wrap');
+    if(inv && inv.length){
+      invTb.innerHTML = '<table><thead><tr><th>Package</th><th>Version</th><th>Type</th><th>Last Seen</th></tr></thead><tbody>'+inv.slice(0,15).map(i => `
+        <tr>
+          <td style="font-size:10px;color:#00dddd">${i.package_name||'—'}</td>
+          <td style="font-size:10px">${i.package_version||'—'}</td>
+          <td style="font-size:10px;color:#4a4a56">${i.package_type||'system'}</td>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(i.last_seen)}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    } else {
+      invTb.innerHTML = emptyState('inventory','No inventory','Run a scan to discover packages','Run Scan','runVulnScan()');
+    }
+  }catch(e){console.error('VULN:',e)}
+}
+
+async function runVulnScan(){
+  try{ await api('/api/v1/vuln/scan',{method:'POST'}); loadVuln(); }
+  catch(e){console.error(e)}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ACTIVE RESPONSE
+// ════════════════════════════════════════════════════════════════════
+async function loadResponse(){
+  try{
+    const [playbooks, log] = await Promise.all([
+      api('/api/v1/response/playbooks'), api('/api/v1/response/log?limit=30')
+    ]);
+    const pbEl = document.getElementById('response-playbooks');
+    const entries = Object.entries(playbooks);
+    if(!entries.length){
+      pbEl.innerHTML = emptyState('flash_on','No playbooks','Response automation disabled');
+    } else {
+      pbEl.innerHTML = entries.map(([id,p]) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+          <div style="flex:1;min-width:0">
+            <div style="color:#e0dfe6;font-size:11px;font-weight:500">${p.name}</div>
+            <div style="color:#4a4a56;font-size:9px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.description||''}</div>
+          </div>
+          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+            <span class="tag ${p.severity==='critical'?'t-critical':p.severity==='high'?'t-high':'t-info'}" style="font-size:8px">${p.severity||'info'}</span>
+            <button onclick="execPlaybook('${id}')" style="background:rgba(0,221,221,0.06);border:1px solid rgba(0,221,221,0.15);color:#00dddd;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:8px;font-family:'JetBrains Mono',monospace">Run</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    const logTb = document.getElementById('response-log-wrap');
+    if(log && log.length){
+      logTb.innerHTML = '<table><thead><tr><th>Time</th><th>Playbook</th><th>Target</th><th>Status</th></tr></thead><tbody>'+log.slice(0,20).map(e => `
+        <tr>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(e.timestamp)}</td>
+          <td style="font-size:10px;color:#00dddd">${e.playbook_id||'—'}</td>
+          <td style="font-size:10px">${e.target||'—'}</td>
+          <td><span class="tag ${e.status==='success'||e.status==='executed'?'t-low':e.status==='failed'?'t-high':'t-info'}">${e.status||'—'}</span></td>
+        </tr>
+      `).join('')+'</tbody></table>';
+    } else {
+      logTb.innerHTML = emptyState('history','No executions','Playbooks ready for action');
+    }
+  }catch(e){console.error('Response:',e)}
+}
+
+function execPlaybook(playbookId){
+  const target = prompt('Target for "'+playbookId+'" (IP or PID):');
+  if(!target) return;
+  api('/api/v1/response/execute?playbook_id='+playbookId+'&target='+encodeURIComponent(target),{method:'POST'})
+    .then(() => loadResponse()).catch(e => alert('Failed: '+e.message));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// AGENTS
+// ════════════════════════════════════════════════════════════════════
+async function loadAgents(){
+  try{
+    const agents = await api('/api/v1/agents');
+    const count = document.getElementById('agt-count');
+    const tb = document.getElementById('agt-table-wrap');
+    const mets = document.getElementById('agt-metrics');
+    const badge = document.getElementById('agt-badge');
+
+    const online = agents.filter(a => a.status === 'active');
+    const offline = agents.filter(a => a.status === 'inactive');
+    if(badge) badge.style.display = online.length ? 'block' : 'none';
+
+    mets.innerHTML = metricCards([
+      {label:'Agents',val:agents.length,color:'#00dddd'},
+      {label:'Online',val:online.length,color:'#4edea3'},
+      {label:'Offline',val:offline.length,color:'#ff4d6d'},
+    ], true);
+    setTimeout(() => {
+      document.querySelectorAll('#agt-metrics .mc canvas').forEach(c => {
+        sparkline(c.id, [2,3,5,4,6,5,7,6], c.parentElement.querySelector('.mc-val').style.color);
+      });
+    }, 50);
+
+    if(count) count.textContent = agents.length+' device'+(agents.length!==1?'s':'');
+    if(!agents.length){
+      tb.innerHTML = emptyState('devices','No agents registered','Deploy the agent on any Linux host to begin monitoring','','');
+      return;
+    }
+
+    // Populate command target dropdown
+    const sel = document.getElementById('agt-cmd-target');
+    if(sel){
+      sel.innerHTML = '<option value="">— Select target agent —</option>'+
+        agents.map(a => `<option value="${a.agent_id}">${a.hostname||a.agent_id} (${a.status})</option>`).join('');
+    }
+
+    tb.innerHTML = '<table><thead><tr><th>Agent ID</th><th>Hostname</th><th>OS</th><th>IP</th><th>Status</th><th>Last Seen</th><th>Action</th></tr></thead><tbody>'+
+      agents.map(a => {
+        const st = (a.status||'inactive').toLowerCase();
+        const dot = st==='active'?'<span style="color:#4edea3">●</span>':'<span style="color:#ff4d6d">●</span>';
+        return `<tr>
+          <td style="font-size:9px;color:#4a4a56;max-width:90px;overflow:hidden;text-overflow:ellipsis">${a.agent_id}</td>
+          <td style="font-size:11px;font-weight:500">${a.hostname||'—'}</td>
+          <td style="font-size:10px;color:#4a4a56">${(a.os_info||'—').slice(0,30)}</td>
+          <td style="font-size:10px;color:#00dddd">${a.ip_address||'—'}</td>
+          <td style="font-size:10px">${dot} ${st}</td>
+          <td style="font-size:10px;color:#4a4a56">${timeAgo(a.last_heartbeat)}</td>
+          <td><button onclick="showAgentResults('${a.agent_id}')" style="background:rgba(0,221,221,0.06);border:1px solid rgba(0,221,221,0.15);color:#00dddd;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:8px;font-family:'JetBrains Mono',monospace">Results</button></td>
+        </tr>`;
+      }).join('')+'</tbody></table>';
+  }catch(e){console.error('Agents:',e)}
+}
+
+async function showAgentResults(agentId){
+  try{
+    const results = await api('/api/v1/agents/'+agentId+'/results?limit=20');
+    const wrap = document.getElementById('agt-results-wrap');
+    if(!results.length){
+      wrap.innerHTML = emptyState('history','No results yet','Results appear after agent executes commands');
+      return;
+    }
+    wrap.innerHTML = '<table><thead><tr><th>Type</th><th>Summary</th><th>Time</th></tr></thead><tbody>'+
+      results.slice(0,15).map(r => `
+        <tr>
+          <td><span class="tag ${r.result_type==='heartbeat'?'t-info':r.result_type==='fim'?'t-low':'t-medium'}">${r.result_type||'?'}</span></td>
+          <td style="font-size:9px;color:#6a6a78;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.summary||r.payload||'—').slice(0,60)}</td>
+          <td style="font-size:9px;color:#4a4a56">${timeAgo(r.timestamp)}</td>
+        </tr>
+      `).join('')+'</tbody></table>';
+  }catch(e){console.error('Agent results:',e)}
+}
+
+async function queueAgentCmd(){
+  const sel = document.getElementById('agt-cmd-target');
+  const type = document.getElementById('agt-cmd-type');
+  const msg = document.getElementById('agt-cmd-msg');
+  if(!sel.value){
+    msg.textContent = 'Select a target agent'; msg.style.color = '#ff4d6d'; msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+    return;
+  }
+  try{
+    await api('/api/v1/agents/'+sel.value+'/commands?command='+encodeURIComponent(JSON.stringify({type: type.value})), {method:'POST'});
+    msg.textContent = 'Command queued for '+sel.options[sel.selectedIndex].text; msg.style.color = '#00dddd'; msg.style.display = 'inline';
+  }catch(e){
+    msg.textContent = 'Failed: '+e.message; msg.style.color = '#ff4d6d'; msg.style.display = 'inline';
+  }
+  setTimeout(() => msg.style.display = 'none', 3000);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// RULES
+// ════════════════════════════════════════════════════════════════════
 async function loadRules(){
   try{
-    const rules=await api('/api/v1/rules');
-    document.getElementById('rules-count').textContent=rules.length+' rules';
-    const tb=document.getElementById('rules-table');
-    if(!rules.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:#414755;padding:20px">No rules</td></tr>';return}
-    const SYS=['sql-core-01','xss-scrutiny-01','rfi-blocker-01'];
-    tb.innerHTML=rules.map(r=>{
-      const on=r.is_active==1||r.is_active===true;
+    const rules = await api('/api/v1/rules');
+    document.getElementById('rules-count').textContent = rules.length+' rules';
+    const tb = document.getElementById('rules-table-wrap');
+    if(!rules.length){
+      tb.innerHTML = emptyState('shield','No rules','Deploy your first signature rule');
+      return;
+    }
+    const SYS = ['sql-core-01','xss-scrutiny-01','rfi-blocker-01'];
+    tb.innerHTML = '<table><thead><tr><th>ID</th><th>Identifier</th><th>Cat</th><th>Action</th><th>Blocks</th><th>On</th><th></th></tr></thead><tbody>'+rules.map(r => {
+      const on = r.is_active==1||r.is_active===true;
       return `<tr>
-        <td class="dim" style="max-width:90px;overflow:hidden;text-overflow:ellipsis">${r.rule_id}</td>
-        <td style="font-weight:500">${r.identifier}</td>
+        <td style="font-size:9px;color:#4a4a56;max-width:70px;overflow:hidden;text-overflow:ellipsis">${r.rule_id}</td>
+        <td style="font-size:11px;font-weight:500">${r.identifier}</td>
         <td>${catTag(r.category)}</td>
-        <td class="dim">${r.action}</td>
-        <td style="color:#ffb95f">${r.blocks_count||0}</td>
-        <td><div class="tog ${on?'on':''}" onclick="toggleRule('${r.rule_id}',${on})"></div></td>
-        <td>${SYS.includes(r.rule_id)?'<span style="font-size:10px;color:#414755">SYSTEM</span>':`<button class="btn-d" onclick="deleteRule('${r.rule_id}')">Delete</button>`}</td>
+        <td style="font-size:10px;color:#4a4a56">${r.action}</td>
+        <td style="color:#ffb95f;font-size:10px">${r.blocks_count||0}</td>
+        <td><div onclick="toggleRule('${r.rule_id}',${on})" style="width:30px;height:16px;background:${on?'rgba(78,222,163,0.35)':'#22222a'};border-radius:8px;position:relative;cursor:pointer;transition:.2s;display:inline-block"><div style="position:absolute;top:2px;left:${on?'15px':'2px'};width:12px;height:12px;border-radius:50%;background:${on?'#4edea3':'#6a6a78'};transition:.2s"></div></div></td>
+        <td>${SYS.includes(r.rule_id)?'<span style="color:#3a3a46;font-size:9px">SYS</span>':`<button onclick="deleteRule('${r.rule_id}')" style="background:rgba(255,0,60,0.06);border:1px solid rgba(255,0,60,0.15);color:#ff4d6d;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:8px;font-family:'JetBrains Mono',monospace">Del</button>`}</td>
       </tr>`;
-    }).join('');
+    }).join('')+'</tbody></table>';
   }catch(e){console.error('Rules:',e)}
 }
 
 async function createRule(){
-  const body={
-    identifier:document.getElementById('r-id').value,
-    pattern:document.getElementById('r-pat').value,
-    action:document.getElementById('r-act').value,
-    category:document.getElementById('r-cat').value||'Custom',
-    severity:document.getElementById('r-sev').value,
-    description:document.getElementById('r-desc').value,
+  const body = {
+    identifier: document.getElementById('r-id').value,
+    pattern: document.getElementById('r-pat').value,
+    action: document.getElementById('r-act').value,
+    category: document.getElementById('r-cat').value||'Custom',
+    severity: document.getElementById('r-sev').value,
+    description: document.getElementById('r-desc').value,
   };
-  if(!body.identifier||!body.pattern){showMsg('rule-msg','Fill identifier and pattern','#ff003c');return}
+  if(!body.identifier||!body.pattern){ showMsg('rule-msg','Fill identifier and pattern','#ff4d6d'); return; }
   try{
-    const res=await api('/api/v1/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const res = await api('/api/v1/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     showMsg('rule-msg','Deployed: '+res.rule_id,'#4edea3');
     loadRules();
-  }catch(e){showMsg('rule-msg','Error: '+e.message,'#ff003c')}
+    document.getElementById('r-id').value = ''; document.getElementById('r-pat').value = '';
+    document.getElementById('r-cat').value = ''; document.getElementById('r-desc').value = '';
+  }catch(e){ showMsg('rule-msg','Error: '+e.message,'#ff4d6d'); }
 }
 
 async function toggleRule(id,on){
-  await api(`/api/v1/rules/${id}/toggle`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_active:!on})});
+  await api('/api/v1/rules/'+id+'/toggle',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_active:!on})});
   loadRules();
 }
 
 async function deleteRule(id){
   if(!confirm('Delete rule '+id+'?')) return;
-  await api(`/api/v1/rules/${id}`,{method:'DELETE'});
+  await api('/api/v1/rules/'+id,{method:'DELETE'});
   loadRules();
 }
 
-// ─── Incidents ────────────────────────────────────────────────────────
-async function loadIncidents(){
+// ════════════════════════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════════════════════════
+async function loadSettings(){
   try{
-    const d=await api('/api/v1/threat-intel/alerts');
-    const inc=d.incidents||[];
-    document.getElementById('inc-count').textContent=inc.length+' recent';
-    const tb=document.getElementById('inc-table');
-    if(!inc.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#414755;padding:20px">No incidents</td></tr>';return}
-    tb.innerHTML=inc.map(i=>`
-      <tr>
-        <td style="color:#adc6ff;font-size:11px">${(i.incident_id||'').slice(0,14)}…</td>
-        <td class="dim">${(i.timestamp||'').toString().slice(0,19)}</td>
-        <td>${i.source_ip||'—'}</td>
-        <td>${catTag(i.threat_category)}</td>
-        <td class="dim" style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${(i.target_uri||'—').slice(0,30)}</td>
-        <td>${actTag(i.mitigation_action)}</td>
-      </tr>`).join('');
-  }catch(e){console.error('Incidents:',e)}
+    const [posture, bl] = await Promise.all([
+      api('/api/v1/mitigation-posture'), api('/api/v1/blacklist')
+    ]);
+    document.querySelectorAll('.posture-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.p === posture.posture);
+      b.style.opacity = b.dataset.p === posture.posture ? '1' : '.6';
+      b.onclick = () => setPosture(b.dataset.p);
+    });
+    const blIps = bl.blacklisted_ips || [];
+    document.getElementById('bl-list').innerHTML = blIps.length
+      ? blIps.map(ip => `<span style="display:inline-block;background:rgba(255,0,60,0.06);border:1px solid rgba(255,0,60,0.12);border-radius:3px;padding:1px 6px;margin:2px;font-size:9px;color:#ff4d6d">${ip}</span>`).join('')
+      : '<span style="color:#4a4a56">No IPs blacklisted</span>';
+    document.getElementById('sys-info').innerHTML = `
+      <div style="padding:3px 0;color:#e0dfe6">KALKI WAF <span style="color:#6a6a78">v3.0.0</span></div>
+      <div style="padding:3px 0;color:#6a6a78;font-size:10px">Backend: SQLite</div>
+      <div style="padding:3px 0;color:#6a6a78;font-size:10px">Posture: ${posture.posture||'Standard'}</div>
+      <div style="margin-top:6px;height:2px;background:linear-gradient(90deg,#00dddd,#4edea3,#00dddd);border-radius:1px"></div>`;
+  }catch(e){console.error('Settings:',e)}
 }
 
-// ─── Sandbox ──────────────────────────────────────────────────────────
-async function runSandbox(){
-  const pattern=document.getElementById('sb-pat').value;
-  const payload=document.getElementById('sb-pay').value;
-  const res=document.getElementById('sb-result');
-  if(!pattern||!payload) return;
-  try{
-    const d=await api('/api/v1/rules/test-sandbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pattern,payload})});
-    res.style.display='block';
-    if(d.match){
-      res.style.background='rgba(255,0,60,0.08)';res.style.border='1px solid rgba(255,0,60,0.2)';res.style.color='#ff6b8a';
-      res.innerHTML=`<div style="font-weight:600;margin-bottom:4px">⚠ MATCH DETECTED</div><div>Span: [${d.span}]</div><div>Matched: <span style="color:#ff003c">${d.match_group}</span></div>`;
-    }else{
-      res.style.background='rgba(78,222,163,0.06)';res.style.border='1px solid rgba(78,222,163,0.15)';res.style.color='#4edea3';
-      res.innerHTML=d.error?`<div>⚠ Regex error: ${d.error}</div>`:'<div>✓ No match — payload is clean</div>';
-    }
-  }catch(e){console.error(e)}
-}
-
-// ─── Posture ──────────────────────────────────────────────────────────
 async function setPosture(p){
   try{
     await api('/api/v1/mitigation-posture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({posture:p})});
-    syncPosture(p);
-    document.getElementById('posture-label').textContent=p;
+    document.getElementById('posture-label').textContent = p;
+    const dot = document.getElementById('posture-dot');
+    dot.style.background = p==='Under Attack'?'#ff4d6d':p==='Monitor Only'?'#ffb95f':'#4edea3';
+    document.querySelectorAll('.posture-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.p === p);
+      b.style.opacity = b.dataset.p === p ? '1' : '.6';
+    });
   }catch(e){console.error(e)}
 }
 
-function syncPosture(p){
-  document.querySelectorAll('#posture-btns .pb').forEach(b=>{
-    b.classList.toggle('active',b.textContent.trim().includes(p||'Standard'));
-  });
-  const dot=document.getElementById('posture-dot');
-  dot.style.background=p==='Under Attack'?'#ff003c':p==='Monitor Only'?'#ffb95f':'#4edea3';
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────
-function showMsg(id,msg,color){
-  const el=document.getElementById(id);
-  el.textContent=msg;el.style.color=color;el.style.display='inline';
-  setTimeout(()=>el.style.display='none',4000);
-}
-
-  // ── Firewall Location ──────────────────────────────────────────────
-async function loadFirewallLocation(){
+async function addBlacklist(){
+  const ip = document.getElementById('bl-ip').value.trim();
+  if(!ip) return;
   try{
-    const fw=await api('/api/v1/firewall/location');
-    if(fw&&fw.lat!=null&&fw.lon!=null){
-      const globe=window.globeScene;
-    }
-  }catch(e){
-    console.error('Firewall location:',e);
-  }
+    await api('/api/v1/blacklist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip_address:ip,reason:'manual'})});
+    document.getElementById('bl-ip').value = ''; loadSettings();
+  }catch(e){alert(e.message)}
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────
-loadFirewallLocation();
-loadTelemetry();
-setInterval(loadTelemetry,8000);
+// ─── Helpers ───────────────────────────────────────────────────────
+function showMsg(id,msg,color){
+  const el = document.getElementById(id);
+  el.textContent = msg; el.style.color = color; el.style.display = 'inline';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────
+initGlobe();
+startSSE();
+loadOverview();
 </script>
 </body>
 </html>
