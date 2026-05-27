@@ -349,16 +349,19 @@ WantedBy=multi-user.target
 
 def _do_install():
     unit = _service_unit()
-    tmp = Path(tempfile.gettempdir()) / "kalki-waf.service"
     try:
-        tmp.write_text(unit)
-        subprocess.run(["sudo", "cp", str(tmp), str(SERVICE_FILE)], check=True)
-        tmp.unlink(missing_ok=True)
+        # Write service file via sudo sh -c (avoids temp file + stdin issues)
+        subprocess.run(
+            ["sudo", "sh", "-c", f"cat > {SERVICE_FILE}"],
+            input=unit, text=True, check=True)
         subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
         subprocess.run(["sudo", "systemctl", "enable", SERVICE_NAME], check=True)
         subprocess.run(["sudo", "systemctl", "start", SERVICE_NAME], check=True)
         print(f"[KALKI] Installed and started ({SERVICE_FILE})")
         subprocess.run(["systemctl", "--no-pager", "-l", "status", SERVICE_NAME])
+    except PermissionError:
+        print("[KALKI] Need sudo to run install.", file=sys.stderr)
+        sys.exit(1)
     except subprocess.CalledProcessError as e:
         print(f"[KALKI] Install failed: {e}", file=sys.stderr)
         sys.exit(1)
