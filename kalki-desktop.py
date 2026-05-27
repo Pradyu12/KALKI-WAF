@@ -22,7 +22,25 @@ except ImportError:
     print("tkinter not available. On Linux: sudo apt install python3-tk")
     sys.exit(1)
 
+try:
+    from PIL import Image, ImageTk
+    _HAS_PIL = True
+except ImportError:
+    _HAS_PIL = False
+
 SERVER = os.environ.get("KALKI_SERVER", "https://kalki-waf.onrender.com")
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_LOGO_PATH = os.environ.get("KALKI_LOGO", "")
+if not _LOGO_PATH:
+    candidates = [
+        os.path.join(_SCRIPT_DIR, "frontend", "kalki_waf_logo.png"),
+        os.path.join(_SCRIPT_DIR, "..", "frontend", "kalki_waf_logo.png"),
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            _LOGO_PATH = p
+            break
 
 class KalkiDesktop:
     def __init__(self):
@@ -32,10 +50,20 @@ class KalkiDesktop:
         self.root.configure(bg="#0d0d12")
         self.root.resizable(True, True)
 
-        try:
-            self.root.iconbitmap(default="")
-        except Exception:
-            pass
+        self._logo_img = None
+        self._logo_icon = None
+        if _HAS_PIL and _LOGO_PATH:
+            try:
+                img = Image.open(_LOGO_PATH)
+                # Window icon
+                icon_img = ImageTk.PhotoImage(img.resize((32, 32), Image.LANCZOS))
+                self.root.iconphoto(True, icon_img)
+                self._logo_icon = icon_img
+                # Display logo
+                logo_display = img.resize((28, 28), Image.LANCZOS)
+                self._logo_img = ImageTk.PhotoImage(logo_display)
+            except Exception:
+                pass
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -44,8 +72,17 @@ class KalkiDesktop:
         top = tk.Frame(self.root, bg="#0d0d12", height=40)
         top.pack(fill="x", padx=10, pady=(8,2))
 
-        tk.Label(top, text="KALKI", font=("Consolas", 16, "bold"),
-                 fg="#00dddd", bg="#0d0d12").pack(side="left")
+        logo_container = tk.Frame(top, bg="#0d0d12")
+        logo_container.pack(side="left")
+
+        if self._logo_img:
+            tk.Label(logo_container, image=self._logo_img, bg="#0d0d12",
+                     cursor="hand2").pack(side="left")
+            tk.Label(logo_container, text="  KALKI", font=("Consolas", 16, "bold"),
+                     fg="#00dddd", bg="#0d0d12").pack(side="left")
+        else:
+            tk.Label(logo_container, text="KALKI", font=("Consolas", 16, "bold"),
+                     fg="#00dddd", bg="#0d0d12").pack(side="left")
 
         self.status_lbl = tk.Label(top, text="● LIVE", font=("Consolas", 9),
                                    fg="#4edea3", bg="#0d0d12")
