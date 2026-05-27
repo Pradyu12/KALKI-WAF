@@ -2,15 +2,32 @@ import os
 import sqlite3
 import threading
 
-DB_PATH = os.getenv("DB_PATH", "security_gateway.db")
+DB_PATH = os.getenv("DB_PATH", "")
+if not DB_PATH:
+    DB_PATH = os.path.join(os.getenv("RENDER_DISK_PATH", "/tmp"), "security_gateway.db")
+
 _BUSY_TIMEOUT = 5000
 _MAX_CONNECTIONS = 10
 
 _local = threading.local()
 
 
+def _ensure_db_dir():
+    global DB_PATH
+    d = os.path.dirname(DB_PATH)
+    if d and not os.path.exists(d):
+        try:
+            os.makedirs(d, exist_ok=True)
+        except PermissionError:
+            fallback = os.path.join("/tmp", "kalki-" + os.path.basename(DB_PATH))
+            print(f"[WARN] Cannot write to {d}. Falling back to {fallback}")
+            DB_PATH = fallback
+            os.makedirs("/tmp", exist_ok=True)
+
+
 def _get_pool_connection():
     if not hasattr(_local, "conn") or _local.conn is None:
+        _ensure_db_dir()
         _local.conn = sqlite3.connect(DB_PATH, timeout=5.0)
         _local.conn.row_factory = sqlite3.Row
         _local.conn.execute("PRAGMA journal_mode=WAL")
