@@ -315,19 +315,35 @@ async def remove_from_blacklist(ip: str, _: str | None = Depends(verify_admin_ke
 # ─── Remote Agent / Device Monitoring ────────────────────────────────────────────
 
 
-@router.get("/api/v1/agents/script")
-async def agent_script():
+def _find_agent_script(name: str) -> str | None:
     candidates = [
-        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "agents", "kalki-agent.py")),
-        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "agents", "kalki-agent.py")),
-        os.path.normpath(os.path.join(os.getcwd(), "..", "agents", "kalki-agent.py")),
-        os.path.normpath(os.path.join(os.getcwd(), "agents", "kalki-agent.py")),
+        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "agents", name)),
+        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "agents", name)),
+        os.path.normpath(os.path.join(os.getcwd(), "..", "agents", name)),
+        os.path.normpath(os.path.join(os.getcwd(), "agents", name)),
     ]
     for p in candidates:
         if os.path.isfile(p):
-            with open(p) as f:
-                return Response(content=f.read(), media_type="text/x-python")
+            return p
+    return None
+
+
+@router.get("/api/v1/agents/script")
+async def agent_script():
+    p = _find_agent_script("kalki-agent.py")
+    if p:
+        with open(p) as f:
+            return Response(content=f.read(), media_type="text/x-python")
     raise HTTPException(status_code=404, detail="Agent script not found") from None
+
+
+@router.get("/api/v1/agents/script/mobile")
+async def mobile_agent_script():
+    p = _find_agent_script("mobile-agent.sh")
+    if p:
+        with open(p) as f:
+            return Response(content=f.read(), media_type="text/x-sh")
+    raise HTTPException(status_code=404, detail="Mobile agent script not found") from None
 
 
 @router.post("/api/v1/agents/register")

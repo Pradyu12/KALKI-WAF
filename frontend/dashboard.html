@@ -306,17 +306,30 @@ td{padding:5px 10px;white-space:nowrap}
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     <div class="card fadein" style="padding:14px">
-      <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Deploy Agent</div>
+      <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Deploy — Linux Server</div>
       <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#4a4a56;line-height:1.6">
-        <div style="margin-bottom:6px">Run this on any Linux host:</div>
+        <div style="margin-bottom:4px">Requires Python 3:</div>
         <div style="background:#0e0e14;border:1px solid #22222a;border-radius:5px;padding:8px 10px;font-size:10px;color:#00dddd;word-break:break-all;user-select:all" id="agt-deploy-cmd">
-          curl -sL http://&lt;waf-ip&gt;:8000/api/v1/agents/script | python3 - --server http://&lt;waf-ip&gt;:8000
+          curl -sL https://kalki-waf.onrender.com/api/v1/agents/script | python3 - --server https://kalki-waf.onrender.com
         </div>
-        <div style="margin-top:8px;color:#6a6a78;font-size:9px">
-          <div>• Auto-registers on first run</div>
-          <div>• Sends heartbeats every 30s</div>
+        <div style="margin-top:6px;color:#6a6a78;font-size:9px">
+          <div>• Auto-registers → heartbeats every 30s</div>
           <div>• Supports FIM, SCA, Vuln inventory, HIDS log tailing</div>
-          <div>• Polls for remote commands from this dashboard</div>
+          <div>• Polls for remote commands</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.04);padding-top:12px">
+        <div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#6a6a78;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Deploy — Android / iOS</div>
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#4a4a56;line-height:1.6">
+          <div style="margin-bottom:4px">Android (Termux) or iOS (iSH):</div>
+          <div style="background:#0e0e14;border:1px solid #22222a;border-radius:5px;padding:8px 10px;font-size:10px;color:#fe00fe;word-break:break-all;user-select:all" id="agt-mobile-cmd">
+            curl -sL https://kalki-waf.onrender.com/api/v1/agents/script/mobile | sh -s -- https://kalki-waf.onrender.com
+          </div>
+          <div style="margin-top:6px;color:#6a6a78;font-size:9px">
+            <div>• No Python needed — only sh + curl</div>
+            <div>• Reports battery level, storage, OS info</div>
+            <div>• Heartbeats every 30s, polls for commands</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1202,15 +1215,16 @@ async function loadAgents(){
         agents.map(a => `<option value="${a.agent_id}">${a.hostname||a.agent_id} (${a.status})</option>`).join('');
     }
 
-    tb.innerHTML = '<table><thead><tr><th>Agent ID</th><th>Hostname</th><th>OS</th><th>IP</th><th>Status</th><th>Last Seen</th><th>Action</th></tr></thead><tbody>'+
+    tb.innerHTML = '<table><thead><tr><th>Type</th><th>Hostname</th><th>OS</th><th>Status</th><th>Last Seen</th><th>Action</th></tr></thead><tbody>'+
       agents.map(a => {
         const st = (a.status||'inactive').toLowerCase();
         const dot = st==='active'?'<span style="color:#4edea3">●</span>':'<span style="color:#ff4d6d">●</span>';
+        const tags = Array.isArray(a.tags) ? a.tags : [];
+        const typeIcon = tags.includes('mobile') ? '<span style="color:#fe00fe" title="Mobile">📱</span>' : '<span style="color:#00dddd" title="Server">🖥</span>';
         return `<tr>
-          <td style="font-size:9px;color:#4a4a56;max-width:90px;overflow:hidden;text-overflow:ellipsis">${a.agent_id}</td>
+          <td style="font-size:11px">${typeIcon}</td>
           <td style="font-size:11px;font-weight:500">${a.hostname||'—'}</td>
-          <td style="font-size:10px;color:#4a4a56">${(a.os_info||'—').slice(0,30)}</td>
-          <td style="font-size:10px;color:#00dddd">${a.ip_address||'—'}</td>
+          <td style="font-size:10px;color:#4a4a56">${(a.os_info||'—').slice(0,35)}</td>
           <td style="font-size:10px">${dot} ${st}</td>
           <td style="font-size:10px;color:#4a4a56">${timeAgo(a.last_heartbeat)}</td>
           <td><button onclick="showAgentResults('${a.agent_id}')" style="background:rgba(0,221,221,0.06);border:1px solid rgba(0,221,221,0.15);color:#00dddd;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:8px;font-family:'JetBrains Mono',monospace">Results</button></td>
