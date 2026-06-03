@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+// KALKI-WAF Demo Mode — Mock API for GitHub Pages
+if (window.location.hostname.includes('github.io') || window.location.hostname.includes('github.dev')) {
+  const MOCK_DELAY = 100;
+  const NOW = Date.now();
+  const ago = (s) => new Date(NOW - s * 1000).toISOString();
+  
+  const mockData = {
+    '/api/v1/threat-intel/alerts': () => ({
+      metrics: {
+        total_ingress: 28471,
+        total_blocked: 1423,
+        sqli_count: 312,
+        xss_count: 489,
+        rfi_count: 201,
+        cmdi_count: 177,
+        pt_count: 144,
+        other_count: 100
+      },
+      breakdown: { SQLi: 312, XSS: 489, RFI: 201, CMDi: 177, PathTraversal: 144, Other: 100 },
+      timeline: Array.from({length:24}, () => Math.floor(Math.random() * 80 + 10)),
+      incidents: [
+        { type: 'SQLi', src_ip: '45.33.32.156', method: 'POST', path: '/login', severity: 'critical', timestamp: ago(30), url: '/login', user_agent: 'Mozilla/5.0', blocked: true },
+        { type: 'XSS', src_ip: '185.220.101.42', method: 'GET', path: '/search', severity: 'high', timestamp: ago(120), url: '/search', user_agent: 'curl/7.68', blocked: true },
+        { type: 'CMDi', src_ip: '103.235.46.95', method: 'POST', path: '/api/exec', severity: 'critical', timestamp: ago(300), url: '/api/exec', user_agent: 'python-requests/2.26', blocked: true },
+        { type: 'RFI', src_ip: '91.121.87', method: 'GET', path: '/includes', severity: 'high', timestamp: ago(600), url: '/includes', user_agent: 'Go-http-client/2.0', blocked: true },
+        { type: 'SQLi', src_ip: '192.168.1.105', method: 'GET', path: '/products', severity: 'medium', timestamp: ago(900), url: '/products', user_agent: 'Mozilla/5.0', blocked: false },
+        { type: 'PT', src_ip: '78.46.89.12', method: 'GET', path: '/../../etc', severity: 'high', timestamp: ago(1800), url: '/../../etc', user_agent: 'curl/7.58', blocked: true },
+        { type: 'XSS', src_ip: '51.75.145.210', method: 'POST', path: '/feedback', severity: 'medium', timestamp: ago(3600), url: '/feedback', user_agent: 'Mozilla/5.0', blocked: true },
+      ]
+    }),
+    '/api/v1/siem/dashboard': () => ({
+      total_alerts: 1423,
+      critical: 89,
+      high: 312,
+      medium: 567,
+      low: 455,
+      trend: Array.from({length:24}, () => Math.floor(Math.random() * 50 + 5)),
+      top_ips: [
+        { ip: '45.33.32.156', count: 234 },
+        { ip: '185.220.101.42', count: 189 },
+        { ip: '103.235.46.95', count: 156 },
+        { ip: '91.121.87', count: 112 },
+        { ip: '78.46.89.12', count: 98 },
+      ],
+      top_attack_types: [
+        { type: 'SQLi', count: 312 },
+        { type: 'XSS', count: 489 },
+        { type: 'RFI', count: 201 },
+        { type: 'CMDi', count: 177 },
+        { type: 'Path Traversal', count: 144 },
+      ]
+    }),
+    '/api/v1/telemetry/live': () => ({
+      cpu_percent: 34.2,
+      memory_mb: 287.5,
+      requests_per_second: 12.4,
+      active_rules: 47,
+      uptime_seconds: 86400,
+      posture: 'standard'
+    }),
+    '/api/v1/siem/stats': () => ({
+      total: 1423,
+      critical: 89,
+      high: 312,
+      medium: 567,
+      low: 455,
+      today: 47,
+      this_week: 312,
+      this_month: 1423,
+      trend: Array.from({length:30}, () => Math.floor(Math.random() * 60 + 10))
+    }),
+    '/api/v1/siem/alerts?limit=30': () => ({
+      list: Array.from({length:30}, (_, i) => ({
+        id: `alert-${i}`,
+        type: ['SQLi','XSS','RFI','CMDi','PT'][Math.floor(Math.random()*5)],
+        src_ip: [ '45.33.32.156', '185.220.101.42', '103.235.46.95', '91.121.87', '78.46.89.12' ][Math.floor(Math.random()*5)],
+        method: ['GET','POST'][Math.floor(Math.random()*2)],
+        path: ['/login','/search','/api/exec','/includes','/products'][Math.floor(Math.random()*5)],
+        severity: ['critical','high','medium','low'][Math.floor(Math.random()*4)],
+        timestamp: ago(i * 60 + Math.floor(Math.random() * 60)),
+        blocked: Math.random() > 0.2
+      }))
+    }),
+    '/api/v1/vuln/stats': () => ({
+      total: 47, critical: 3, high: 12, medium: 18, low: 14,
+      scanned: 245, last_scan: ago(3600)
+    }),
+    '/api/v1/vuln/list?limit=30': () => ({
+      list: [
+        { id: 'CVE-2024-001', name: 'SQL Injection in Login', severity: 'critical', package: 'django 4.2', status: 'open', found: ago(86400), description: 'SQL injection vulnerability in authentication module', remediation: 'Upgrade to django 4.2.10' },
+        { id: 'CVE-2024-002', name: 'XSS in Search Feature', severity: 'high', package: 'jquery 3.6', status: 'open', found: ago(172800), description: 'Cross-site scripting in search results page', remediation: 'Upgrade to jquery 3.7' },
+        { id: 'CVE-2024-003', name: 'Command Injection in API', severity: 'critical', package: 'express 4.18', status: 'open', found: ago(259200), description: 'Command injection via improperly sanitized input', remediation: 'Apply input sanitization' },
+        { id: 'CVE-2024-004', name: 'Path Traversal', severity: 'high', package: 'nginx 1.24', status: 'fixed', found: ago(345600), description: 'Directory traversal in asset serving', remediation: 'Upgrade to nginx 1.25' },
+        { id: 'CVE-2024-005', name: 'Weak TLS Ciphers', severity: 'medium', package: 'openssl 1.1.1', status: 'open', found: ago(432000), description: 'Deprecated TLS ciphers enabled', remediation: 'Disable weak ciphers' },
+        { id: 'CVE-2024-006', name: 'Information Disclosure', severity: 'low', package: 'tomcat 9', status: 'open', found: ago(518400), description: 'Server version exposed in headers', remediation: 'Remove Server header' },
+        ...Array.from({length:24}, (_, i) => ({
+          id: `CVE-2024-${String(i+7).padStart(3,'0')}`,
+          name: `Security Issue #${i+7}`,
+          severity: ['critical','high','medium','low'][Math.floor(Math.random()*4)],
+          package: `${['apache','nginx','python','node','java'][Math.floor(Math.random()*5)]} ${Math.floor(Math.random()*5+1)}.${Math.floor(Math.random()*10)}`,
+          status: ['open','fixed','in_progress'][Math.floor(Math.random()*3)],
+          found: ago(Math.floor(Math.random()*864000)),
+          description: 'Automatically detected vulnerability requiring review',
+          remediation: 'Apply vendor patch'
+        }))
+      ]
+    }),
+    '/api/v1/fim/stats': () => ({
+      total_events: 892, added: 234, modified: 512, deleted: 146,
+      monitored_files: 3127, baseline_age_hours: 12
+    }),
+    '/api/v1/fim/events?limit=30': () => ({
+      list: Array.from({length:30}, (_, i) => ({
+        id: `fim-${i}`, file: ['/etc/shadow','/etc/passwd','/usr/bin/sshd','/var/log/auth.log','/root/.bash_history'][Math.floor(Math.random()*5)],
+        change: ['modified','added','deleted'][Math.floor(Math.random()*3)],
+        severity: ['high','medium','info'][Math.floor(Math.random()*3)],
+        timestamp: ago(i * 120),
+        new_hash: Math.random().toString(36).substring(2, 34),
+        old_hash: Math.random().toString(36).substring(2, 34)
+      }))
+    }),
+    '/api/v1/sca/stats': () => ({
+      total: 142, passed: 98, failed: 32, error: 12,
+      last_scan: ago(7200), compliance_score: 86.5
+    }),
+    '/api/v1/sca/results': () => ({
+      results: [
+        { id: 'sca-1', check: 'Password Policy', status: 'passed', severity: 'high', description: 'Password complexity requirements enforced', recommendation: 'Maintain current policy' },
+        { id: 'sca-2', check: 'SSH Config', status: 'passed', severity: 'critical', description: 'Root login disabled, key-only auth', recommendation: 'Maintain current config' },
+        { id: 'sca-3', check: 'File Permissions /etc/shadow', status: 'failed', severity: 'high', description: 'Shadow file has incorrect permissions', recommendation: 'chmod 640 /etc/shadow' },
+        { id: 'sca-4', check: 'Kernel Hardening', status: 'failed', severity: 'critical', description: 'Kernel ASLR not fully enabled', recommendation: 'Set kernel.randomize_va_space=2' },
+        { id: 'sca-5', check: 'Firewall Status', status: 'passed', severity: 'high', description: 'UFW active with default deny', recommendation: 'Maintain current rules' },
+        { id: 'sca-6', check: 'Open Ports', status: 'failed', severity: 'medium', description: 'Port 3306 exposed to public', recommendation: 'Restrict to internal network' },
+        { id: 'sca-7', check: 'Audit Logging', status: 'passed', severity: 'medium', description: 'auditd running and configured', recommendation: 'Maintain current config' },
+        { id: 'sca-8', check: 'SELinux/AppArmor', status: 'failed', severity: 'medium', description: 'AppArmor not enforcing on all profiles', recommendation: 'Enable enforcing mode' },
+        { id: 'sca-9', check: 'Password Aging', status: 'passed', severity: 'low', description: 'Password expiration set to 90 days', recommendation: 'Maintain current policy' },
+        { id: 'sca-10', check: 'Disk Encryption', status: 'failed', severity: 'medium', description: 'No LUKS on /data partition', recommendation: 'Encrypt with LUKS' },
+        ...Array.from({length:20}, (_, i) => ({
+          id: `sca-${i+11}`, check: `Security Check #${i+11}`,
+          status: ['passed','failed','error'][Math.floor(Math.random()*3)],
+          severity: ['critical','high','medium','low'][Math.floor(Math.random()*4)],
+          description: 'Automated security check result',
+          recommendation: 'Review and remediate if needed'
+        }))
+      ]
+    }),
+    '/api/v1/response/playbooks': () => ({
+      playbooks: [
+        { id: 'pb-1', name: 'Block Malicious IP', type: 'block_ip', enabled: true, description: 'Blocks an IP address across all interfaces', category: 'Network' },
+        { id: 'pb-2', name: 'Kill Suspicious Process', type: 'kill_process', enabled: true, description: 'Terminates a process by PID or name', category: 'Endpoint' },
+        { id: 'pb-3', name: 'Isolate Container', type: 'isolate', enabled: false, description: 'Network-isolates a compromised container', category: 'Container' },
+        { id: 'pb-4', name: 'Reset User Session', type: 'reset_session', enabled: true, description: 'Invalidates all sessions for a user', category: 'Identity' },
+      ]
+    }),
+    '/api/v1/response/log?limit=30': () => ({
+      log: [
+        { id: 'log-1', playbook_id: 'Block Malicious IP', target: '45.33.32.156', status: 'success', timestamp: ago(600), details: 'Blocked at firewall level' },
+        { id: 'log-2', playbook_id: 'Kill Suspicious Process', target: 'PID 2345', status: 'success', timestamp: ago(1800), details: 'Process terminated' },
+        { id: 'log-3', playbook_id: 'Block Malicious IP', target: '185.220.101.42', status: 'failed', timestamp: ago(3600), details: 'IP already blocked' },
+        ...Array.from({length:10}, (_, i) => ({
+          id: `log-${i+4}`, playbook_id: ['Block Malicious IP','Kill Suspicious Process','Reset User Session'][Math.floor(Math.random()*3)],
+          target: [ '45.33.32.156', '185.220.101.42', 'user123', '103.235.46.95' ][Math.floor(Math.random()*4)],
+          status: ['success','success','failed'][Math.floor(Math.random()*3)],
+          timestamp: ago(Math.floor(Math.random()*7200)),
+          details: 'Automated response executed'
+        }))
+      ]
+    }),
+    '/api/v1/rules': () => ({
+      rules: [
+        { id: 'rule-1', name: 'SQLi Core Ruleset', category: 'SQLi', regex: '(\\bUNION\\b.*\\bSELECT\\b|\\bSELECT\\b.*\\bFROM\\b)', severity: 'critical', enabled: true, priority: 1 },
+        { id: 'rule-2', name: 'XSS Aggressive Scrutiny', category: 'XSS', regex: '(<script|<iframe|onerror=)', severity: 'high', enabled: true, priority: 2 },
+        { id: 'rule-3', name: 'Remote File Inclusion', category: 'RFI', regex: '(include\\(|require\\(|file_get_contents)', severity: 'critical', enabled: true, priority: 3 },
+        { id: 'rule-4', name: 'Command Injection Shield', category: 'CMDi', regex: '(\\|\\s*[a-z]+|;\\s*[a-z]+|`[a-z]+)', severity: 'critical', enabled: true, priority: 4 },
+        { id: 'rule-5', name: 'Path Traversal Protection', category: 'PT', regex: '(\\.\\./|%2e%2e/)', severity: 'high', enabled: true, priority: 5 },
+        { id: 'rule-6', name: 'LDAP Injection', category: 'LDAP', regex: '(\\*\\\\)|\\(|\\)|&|\\||!)', severity: 'medium', enabled: true, priority: 6 },
+        { id: 'rule-7', name: 'NoSQL Injection', category: 'NoSQL', regex: '(\\$ne|\\$gt|\\$regex|\\$where)', severity: 'high', enabled: true, priority: 7 },
+        { id: 'rule-8', name: 'SSRF Protection', category: 'SSRF', regex: '(169\\.254|metadata\\.google|169\\.254\\.169\\.254)', severity: 'high', enabled: true, priority: 8 },
+        { id: 'rule-9', name: 'Suspicious User-Agent', category: 'Bot', regex: '(sqlmap|nikto|nmap|wpscan)', severity: 'medium', enabled: false, priority: 9 },
+        { id: 'rule-10', name: 'Rate Limit Exceeded', category: 'RateLimit', regex: '', severity: 'medium', enabled: true, priority: 10 },
+      ]
+    }),
+    '/api/v1/mitigation-posture': () => ({
+      posture: 'standard',
+      rate_limit: '50 req/10s',
+      action: 'blocks detected threats',
+      updated_at: ago(3600)
+    }),
+    '/api/v1/blacklist': () => ({
+      ips: [
+        { ip: '45.33.32.156', reason: 'SQLi Attack', blocked_at: ago(86400), expires: ago(-86400) },
+        { ip: '185.220.101.42', reason: 'XSS Scan', blocked_at: ago(172800), expires: ago(0) },
+        { ip: '103.235.46.95', reason: 'Brute Force', blocked_at: ago(259200), expires: ago(-86400) },
+      ]
+    })
+  };
+
+  // Override the api function
+  const originalApi = window.api;
+  window.api = async function(endpoint, options = {}) {
+    await new Promise(r => setTimeout(r, MOCK_DELAY));
+    
+    // Handle POST/PUT/DELETE - just return success
+    if (options.method && options.method !== 'GET') {
+      return { success: true, message: 'Mock operation completed' };
+    }
+    
+    // Strip query params for matching
+    const baseEndpoint = endpoint.split('?')[0];
+    
+    // Try exact match first, then try with limit params
+    if (mockData[endpoint]) {
+      return mockData[endpoint]();
+    }
+    
+    // Fallback for endpoints with different limits
+    for (const [key, gen] of Object.entries(mockData)) {
+      if (baseEndpoint === key.split('?')[0]) {
+        return gen();
+      }
+    }
+    
+    // Fallback
+    console.warn('Mock: Unknown endpoint', endpoint);
+    return null;
+  };
+
+  // Add demo banner
+  window.addEventListener('DOMContentLoaded', () => {
+    const banner = document.createElement('div');
+    banner.id = 'demo-banner';
+    banner.innerHTML = '🔒 <strong>Demo Mode</strong> — Showing sample data. <a href="https://github.com/Pradyu12/KALKI-WAF" target="_blank" style="color:#c084fc;text-decoration:underline">Run locally</a> for live monitoring.';
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:rgba(20,20,46,0.95);border-top:2px solid #a855f7;backdrop-filter:blur(12px);padding:12px 20px;text-align:center;font-family:Inter,sans-serif;font-size:14px;color:#e0dff6;border-radius:12px 12px 0 0;margin:0 12px;box-shadow:0 -4px 32px rgba(168,85,247,0.3)';
+    document.body.appendChild(banner);
+    
+    // Push body content up to not overlap banner
+    document.body.style.paddingBottom = '70px';
+  });
+}
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>KALKI Security Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+/* iOS Premium Purple Theme */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-void:#000000;
+  --bg-dark:#0a0a0f;
+  --bg-card:#1a1a2e;
+  --bg-elevated:#252538;
+  --purple:#a855f7;
+  --purple-light:#c084fc;
+  --purple-dark:#7e22ce;
+  --purple-glow:rgba(168,85,247,0.5);
+  --purple-dim:rgba(168,85,247,0.15);
+  --text:#ffffff;
+  --text-secondary:#a0a0b0;
+  --text-dim:#606070;
+  --success:#10b981;
+  --warning:#f59e0b;
+  --danger:#ef4444;
+  --border:rgba(168,85,247,0.25);
+  --shadow:0 8px 32px rgba(168,85,247,0.2);
+}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg-void);
+  color:var(--text);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* App Layout */
+.app{
+  display:flex;height:100vh;overflow:hidden;
+}
+/* Sidebar */
+.sidebar{
+  width:280px;
+  background:linear-gradient(180deg,var(--bg-dark) 0%,#0d0d14 100%);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  box-shadow:4px 0 24px rgba(0,0,0,0.5);
+  position:relative;z-index:100;
+}
+.sidebar::before{
+  content:'';position:absolute;top:0;right:0;
+  width:1px;height:100%;
+  background:linear-gradient(180deg,transparent,var(--purple),transparent);
+  opacity:0.3;
+}
+.logo-section{
+  padding:32px 24px;
+  border-bottom:1px solid rgba(168,85,247,0.15);
+}
+.logo{
+  font-size:28px;font-weight:800;letter-spacing:-1px;
+  background:linear-gradient(135deg,var(--purple),var(--purple-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  display:flex;align-items:center;gap:12px;
+}
+.logo .material-symbols-rounded{
+  font-size:32px;color:var(--purple);
+  filter:drop-shadow(0 0 12px var(--purple-glow));
+}
+.nav{flex:1;padding:24px 16px;overflow-y:auto}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;margin-bottom:8px;
+  border-radius:14px;cursor:pointer;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  color:var(--text-secondary);
+  font-size:15px;font-weight:500;
+  position:relative;
+}
+.nav-item:hover{
+  background:var(--purple-dim);
+  color:var(--text);
+  transform:translateX(4px);
+}
+.nav-item.active{
+  background:linear-gradient(135deg,var(--purple-dark),var(--purple));
+  color:white;box-shadow:var(--shadow);
+}
+.nav-item .material-symbols-rounded{font-size:22px}
+.nav-item .badge{
+  margin-left:auto;
+  background:var(--danger);
+  color:white;
+  font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:10px;
+  min-width:20px;text-align:center;
+}
+.status-section{
+  padding:20px;
+  border-top:1px solid rgba(168,85,247,0.15);
+  background:rgba(168,85,247,0.05);
+}
+.status-card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:16px;padding:16px;
+  display:flex;align-items:center;gap:12px;
+}
+.pulse-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--purple);
+  box-shadow:0 0 16px var(--purple-glow);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.5;transform:scale(1.3)}
+}
+.status-info{flex:1}
+.status-label{
+  font-size:11px;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.status-value{
+  font-size:15px;font-weight:600;
+  color:var(--text);margin-top:2px;
+}
+/* Main Content */
+.main{
+  flex:1;display:flex;flex-direction:column;
+  overflow:hidden;background:var(--bg-dark);
+}
+.header{
+  background:rgba(10,10,15,0.95);
+  backdrop-filter:blur(40px) saturate(180%);
+  border-bottom:1px solid var(--border);
+  padding:20px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:relative;z-index:50;
+}
+.header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--purple),transparent);
+  opacity:0.4;
+}
+.header-title{
+  font-size:24px;font-weight:700;
+  color:var(--text);
+}
+.header-subtitle{
+  font-size:14px;color:var(--text-dim);
+  margin-top:2px;
+}
+.header-actions{
+  display:flex;align-items:center;gap:16px;
+}
+.search-box{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:12px;padding:10px 16px;
+  display:flex;align-items:center;gap:10px;
+  min-width:280px;
+}
+.search-box input{
+  background:none;border:none;outline:none;
+  color:var(--text);font-size:14px;flex:1;
+}
+.search-box .material-symbols-rounded{
+  color:var(--text-dim);font-size:20px;
+}
+.icon-btn{
+  width:44px;height:44px;
+  border-radius:12px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all 0.3s;
+  position:relative;
+}
+.icon-btn:hover{
+  background:var(--purple-dim);
+  border-color:var(--purple);
+  transform:translateY(-2px);
+}
+.icon-btn .material-symbols-rounded{color:var(--text-secondary);font-size:22px}
+.icon-btn .badge{
+  position:absolute;top:-4px;right:-4px;
+  background:var(--danger);color:white;
+  font-size:10px;font-weight:700;
+  padding:2px 6px;border-radius:8px;
+  min-width:18px;text-align:center;
+}
+.content{
+  flex:1;overflow-y:auto;padding:32px;
+  background:linear-gradient(135deg,var(--bg-dark) 0%,#0d0d18 100%);
+}
+.section{display:none}
+.section.active{display:block;animation:fadeIn 0.4s ease}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+/* Grid System */
+.row{display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap}
+.col{flex:1;min-width:280px}
+.col-2{flex:2;min-width:400px}
+.col-3{flex:3;min-width:500px}
+/* Cards */
+.card{
+  background:linear-gradient(135deg,rgba(26,26,46,0.8),rgba(26,26,46,0.6));
+  backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid var(--border);
+  border-radius:20px;padding:24px;
+  transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:0 4px 24px rgba(0,0,0,0.4);
+  position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--purple),transparent);
+  opacity:0;transition:opacity 0.3s;
+}
+.card:hover{
+  border-color:var(--purple);
+  box-shadow:0 8px 40px var(--shadow);
+  transform:translateY(-4px);
+}
+.card:hover::before{opacity:1}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.card-title{
+  font-size:18px;font-weight:700;
+  color:var(--text);
+  display:flex;align-items:center;gap:10px;
+}
+.card-title .material-symbols-rounded{
+  font-size:24px;color:var(--purple);
+  filter:drop-shadow(0 0 8px var(--purple-glow));
+}
+.card-badge{
+  font-size:13px;color:var(--text-dim);
+  background:var(--purple-dim);
+  padding:6px 14px;border-radius:10px;
+  font-weight:500;
+}
+/* Metric Cards */
+.metric-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:20px;margin-bottom:24px;
+}
+.metric-card{
+  background:linear-gradient(135deg,var(--bg-card),var(--bg-elevated));
+  border:1px solid var(--border);
+  border-radius:18px;padding:24px;
+  text-align:center;position:relative;
+  transition:all 0.3s;
+}
+.metric-card::after{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:100%;
+  background:linear-gradient(135deg,var(--purple-glow),transparent);
+  opacity:0;transition:opacity 0.3s;
+  border-radius:18px;pointer-events:none;
+}
+.metric-card:hover{
+  transform:translateY(-4px) scale(1.02);
+  box-shadow:0 12px 40px var(--shadow);
+}
+.metric-card:hover::after{opacity:0.1}
+.metric-icon{
+  width:60px;height:60px;margin:0 auto 16px;
+  background:var(--purple-dim);
+  border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.metric-icon .material-symbols-rounded{
+  font-size:32px;color:var(--purple);
+  filter:drop-shadow(0 0 12px var(--purple-glow));
+}
+.metric-value{
+  font-size:36px;font-weight:800;
+  background:linear-gradient(135deg,var(--purple-light),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;margin-bottom:8px;
+}
+.metric-label{
+  font-size:13px;color:var(--text-secondary);
+  font-weight:500;text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+.metric-trend{
+  margin-top:12px;font-size:12px;
+  display:inline-block;padding:4px 12px;
+  border-radius:10px;font-weight:600;
+}
+.trend-up{background:rgba(16,185,129,0.15);color:var(--success)}
+.trend-down{background:rgba(239,68,68,0.15);color:var(--danger)}
+/* Donut Chart Container */
+.donut-container{
+  position:relative;height:220px;
+  display:flex;align-items:center;justify-content:center;
+}
+.donut-center{
+  position:absolute;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.donut-value{
+  font-size:40px;font-weight:800;
+  background:linear-gradient(135deg,var(--purple-light),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.donut-label{
+  font-size:12px;color:var(--text-dim);
+  text-transform:uppercase;margin-top:4px;
+}
+/* Table */
+.table-container{
+  overflow-x:auto;
+  background:rgba(0,0,0,0.2);
+  border-radius:14px;
+  border:1px solid rgba(168,85,247,0.1);
+}
+table{width:100%;border-collapse:collapse}
+thead{
+  background:rgba(168,85,247,0.08);
+  border-bottom:1px solid var(--border);
+}
+th{
+  padding:16px 20px;text-align:left;
+  font-size:12px;font-weight:700;
+  color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:1px;
+}
+tbody tr{
+  border-bottom:1px solid rgba(168,85,247,0.08);
+  transition:all 0.2s;
+}
+tbody tr:hover{
+  background:rgba(168,85,247,0.05);
+}
+td{
+  padding:16px 20px;font-size:14px;
+  color:var(--text-secondary);
+}
+/* Badges */
+.badge{
+  display:inline-block;padding:6px 14px;
+  border-radius:10px;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.badge-critical{background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4)}
+.badge-high{background:rgba(249,115,22,0.2);color:#f97316;border:1px solid rgba(249,115,22,0.4)}
+.badge-medium{background:rgba(245,158,11,0.2);color:#f59e0b;border:1px solid rgba(245,158,11,0.4)}
+.badge-low{background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4)}
+.badge-info{background:var(--purple-dim);color:var(--purple-light);border:1px solid var(--border)}
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  padding:14px 28px;border-radius:14px;
+  font-size:15px;font-weight:600;
+  border:none;cursor:pointer;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--purple),var(--purple-dark));
+  color:white;box-shadow:0 4px 20px var(--shadow);
+}
+.btn-primary:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 30px var(--purple-glow);
+}
+.btn-secondary{
+  background:var(--purple-dim);
+  color:var(--purple-light);
+  border:1px solid var(--border);
+}
+.btn-secondary:hover{
+  background:var(--purple-dim);
+  border-color:var(--purple);
+  transform:translateY(-2px);
+}
+/* Empty State */
+.empty{
+  text-align:center;padding:60px 20px;
+  color:var(--text-dim);
+}
+.empty .material-symbols-rounded{
+  font-size:72px;opacity:0.2;margin-bottom:20px;
+}
+.empty-text{font-size:16px;font-weight:500;margin-bottom:8px}
+.empty-subtext{font-size:13px;opacity:0.6}
+/* Responsive */
+@media(max-width:1024px){
+  .sidebar{width:240px}
+  .header{padding:16px 24px}
+  .content{padding:24px}
+}
+@media(max-width:768px){
+  .app{flex-direction:column}
+  .sidebar{width:100%;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+  .logo-section{padding:20px}
+  .nav{padding:16px;display:flex;overflow-x:auto}
+  .nav-item{margin:0 8px 0 0}
+  .status-section{display:none}
+  .row{flex-direction:column}
+  .metric-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<!-- Sidebar -->
+<aside class="sidebar">
+<div class="logo-section">
+<div class="logo">
+<img src="kalki_waf_logo.png" alt="KALKI-WAF" style="height:40px;width:40px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(168,85,247,0.5))">
+KALKI
+</div>
+</div>
+<nav class="nav">
+<div class="nav-item active" data-section="overview">
+<span class="material-symbols-rounded">dashboard</span>
+Overview
+</div>
+<div class="nav-item" data-section="threats">
+<span class="material-symbols-rounded">warning</span>
+Threats
+<span class="badge" id="threat-badge">0</span>
+</div>
+<div class="nav-item" data-section="siem">
+<span class="material-symbols-rounded">security</span>
+SIEM
+<span class="badge" id="siem-badge">0</span>
+</div>
+<div class="nav-item" data-section="vulnerabilities">
+<span class="material-symbols-rounded">bug_report</span>
+Vulnerabilities
+</div>
+<div class="nav-item" data-section="integrity">
+<span class="material-symbols-rounded">folder</span>
+File Integrity
+</div>
+<div class="nav-item" data-section="compliance">
+<span class="material-symbols-rounded">verified</span>
+Compliance
+</div>
+<div class="nav-item" data-section="response">
+<span class="material-symbols-rounded">flash_on</span>
+Response
+</div>
+<div class="nav-item" data-section="rules">
+<span class="material-symbols-rounded">rule</span>
+Rules
+</div>
+<div class="nav-item" data-section="settings">
+<span class="material-symbols-rounded">settings</span>
+Settings
+</div>
+</nav>
+<div class="status-section">
+<div class="status-card">
+<div class="pulse-dot"></div>
+<div class="status-info">
+<div class="status-label">System Status</div>
+<div class="status-value" id="system-status">Online</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="main">
+<header class="header">
+<div>
+<div class="header-title" id="page-title">Security Overview</div>
+<div class="header-subtitle" id="page-subtitle">Real-time threat monitoring and analysis</div>
+</div>
+<div class="header-actions">
+<div class="search-box">
+<span class="material-symbols-rounded">search</span>
+<input type="text" placeholder="Search...">
+</div>
+<div class="icon-btn">
+<span class="material-symbols-rounded">notifications</span>
+<span class="badge" id="notif-badge">3</span>
+</div>
+<div class="icon-btn">
+<span class="material-symbols-rounded">account_circle</span>
+</div>
+</div>
+</header>
+
+<div class="content">
+<!-- Overview Section -->
+<div class="section active" id="section-overview">
+<div class="metric-grid">
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">traffic</span>
+</div>
+<div class="metric-value" id="total-requests">0</div>
+<div class="metric-label">Total Requests</div>
+<div class="metric-trend trend-up" id="requests-trend">+12.5%</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">block</span>
+</div>
+<div class="metric-value" id="blocked-threats">0</div>
+<div class="metric-label">Blocked Threats</div>
+<div class="metric-trend trend-down" id="blocked-trend">-8.3%</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">memory</span>
+</div>
+<div class="metric-value" id="cpu-usage">0%</div>
+<div class="metric-label">CPU Usage</div>
+<div class="metric-trend" id="cpu-trend">Real-time</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">storage</span>
+</div>
+<div class="metric-value" id="memory-usage">0MB</div>
+<div class="metric-label">Memory Usage</div>
+<div class="metric-trend" id="memory-trend">Real-time</div>
+</div>
+</div>
+<div class="row">
+<div class="col-2">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">analytics</span>
+Threat Distribution
+</div>
+</div>
+<div class="donut-container">
+<canvas id="chart-threat-dist"></canvas>
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">show_chart</span>
+Activity Timeline
+</div>
+</div>
+<canvas id="chart-timeline" style="height:220px"></canvas>
+</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">stream</span>
+Live Event Feed
+</div>
+<div class="card-badge">● STREAMING</div>
+</div>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Time</th>
+<th>Source IP</th>
+<th>Threat Type</th>
+<th>Target URI</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="events-feed">
+<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-dim)">Loading events...</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Threats Section -->
+<div class="section" id="section-threats">
+<div class="row">
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">warning</span>
+Threat Analysis
+</div>
+</div>
+<div class="donut-container">
+<canvas id="chart-threats"></canvas>
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">pie_chart</span>
+By Severity
+</div>
+</div>
+<div class="donut-container">
+<canvas id="chart-threat-severity"></canvas>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SIEM Section -->
+<div class="section" id="section-siem">
+<div class="metric-grid" style="grid-template-columns:repeat(4,1fr)">
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">notification_important</span>
+</div>
+<div class="metric-value" id="siem-total">0</div>
+<div class="metric-label">Total Alerts</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">priority_high</span>
+</div>
+<div class="metric-value" id="siem-critical">0</div>
+<div class="metric-label">Critical</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">error</span>
+</div>
+<div class="metric-value" id="siem-high">0</div>
+<div class="metric-label">High</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">check_circle</span>
+</div>
+<div class="metric-value" id="siem-unacked">0</div>
+<div class="metric-label">Unacknowledged</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">list</span>
+SIEM Alerts
+</div>
+<button class="btn btn-secondary" onclick="loadSiem()">Refresh</button>
+</div>
+<div class="table-container" id="siem-table">
+<div class="empty">
+<span class="material-symbols-rounded">inbox</span>
+<div class="empty-text">No alerts</div>
+<div class="empty-subtext">All systems nominal</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Vulnerabilities Section -->
+<div class="section" id="section-vulnerabilities">
+<div class="metric-grid" style="grid-template-columns:repeat(4,1fr)">
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">bug_report</span>
+</div>
+<div class="metric-value" id="vuln-total">0</div>
+<div class="metric-label">Total CVEs</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">speed</span>
+</div>
+<div class="metric-value" id="vuln-cvss">0.0</div>
+<div class="metric-label">Avg CVSS</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">inventory</span>
+</div>
+<div class="metric-value" id="vuln-packages">0</div>
+<div class="metric-label">Packages</div>
+</div>
+<div class="metric-card">
+<button class="btn btn-primary" onclick="runVulnScan()" style="margin-top:20px;width:100%">
+<span class="material-symbols-rounded">play_arrow</span>
+Run Scan
+</button>
+</div>
+</div>
+
+<div class="row">
+<div class="col-2">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">list</span>
+Vulnerabilities
+</div>
+</div>
+<div class="table-container" id="vuln-table">
+<div class="empty">
+<span class="material-symbols-rounded">security</span>
+<div class="empty-text">No vulnerabilities detected</div>
+</div>
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">pie_chart</span>
+By Severity
+</div>
+</div>
+<div class="donut-container">
+<canvas id="chart-vuln"></canvas>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- File Integrity Section -->
+<div class="section" id="section-integrity">
+<div class="metric-grid">
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">folder</span>
+</div>
+<div class="metric-value" id="fim-total">0</div>
+<div class="metric-label">Total Events</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">visibility</span>
+</div>
+<div class="metric-value" id="fim-monitored">0</div>
+<div class="metric-label">Monitored Files</div>
+</div>
+<div class="metric-card">
+<div class="metric-icon">
+<span class="material-symbols-rounded">edit</span>
+</div>
+<div class="metric-value" id="fim-modified">0</div>
+<div class="metric-label">Modified</div>
+</div>
+<div class="metric-card">
+<button class="btn btn-primary" onclick="runFimCheck()" style="margin-top:20px;width:100%">
+<span class="material-symbols-rounded">play_arrow</span>
+Run Check
+</button>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">list</span>
+File Integrity Events
+</div>
+</div>
+<div class="table-container" id="fim-table">
+<div class="empty">
+<span class="material-symbols-rounded">check_circle</span>
+<div class="empty-text">No integrity issues</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Compliance Section -->
+<div class="section" id="section-compliance">
+<div class="row">
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">verified</span>
+Compliance Score
+</div>
+</div>
+<div class="donut-container">
+<canvas id="chart-compliance"></canvas>
+<div class="donut-center">
+<div class="donut-value" id="compliance-score">0%</div>
+<div class="donut-label">Overall Score</div>
+</div>
+</div>
+<button class="btn btn-primary" onclick="runSca()" style="width:100%;margin-top:20px">
+<span class="material-symbols-rounded">play_arrow</span>
+Run Benchmark
+</button>
+</div>
+</div>
+<div class="col-2">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">checklist</span>
+Benchmark Results
+</div>
+</div>
+<div class="table-container" id="sca-table">
+<div class="empty">
+<span class="material-symbols-rounded">pending</span>
+<div class="empty-text">No benchmarks run</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Response Section -->
+<div class="section" id="section-response">
+<div class="row">
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">flash_on</span>
+Response Playbooks
+</div>
+</div>
+<div id="playbooks-list">
+<div class="empty">
+<span class="material-symbols-rounded">integration_instructions</span>
+<div class="empty-text">Loading playbooks...</div>
+</div>
+</div>
+</div>
+</div>
+<div class="col-2">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">history</span>
+Execution Log
+</div>
+</div>
+<div class="table-container" id="response-log">
+<div class="empty">
+<span class="material-symbols-rounded">pending_actions</span>
+<div class="empty-text">No executions</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Rules Section -->
+<div class="section" id="section-rules">
+<div class="card" style="margin-bottom:24px">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">add_circle</span>
+Create New Rule
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
+<input type="text" id="rule-id" placeholder="Identifier" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px">
+<input type="text" id="rule-pattern" placeholder="Regex Pattern" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px;font-family:monospace">
+<select id="rule-severity" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px">
+<option>Low</option>
+<option>Medium</option>
+<option selected>High</option>
+<option>Critical</option>
+</select>
+</div>
+<div style="display:grid;grid-template-columns:1fr 2fr auto;gap:16px">
+<input type="text" id="rule-category" placeholder="Category" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px">
+<input type="text" id="rule-desc" placeholder="Description" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px">
+<button class="btn btn-primary" onclick="createRule()">
+<span class="material-symbols-rounded">upload</span>
+Deploy Rule
+</button>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">rule</span>
+Security Rules
+</div>
+<div class="card-badge" id="rules-count">0 rules</div>
+</div>
+<div class="table-container" id="rules-table">
+<div class="empty">
+<span class="material-symbols-rounded">shield</span>
+<div class="empty-text">Loading rules...</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Settings Section -->
+<div class="section" id="section-settings">
+<div class="row">
+<div class="col-2">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">tune</span>
+Mitigation Posture
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+<button class="btn btn-secondary posture-btn" data-posture="Monitor Only">
+<span class="material-symbols-rounded">visibility</span>
+Monitor Only
+</button>
+<button class="btn btn-secondary posture-btn active" data-posture="Standard Posture">
+<span class="material-symbols-rounded">shield</span>
+Standard
+</button>
+<button class="btn btn-secondary posture-btn" data-posture="Under Attack">
+<span class="material-symbols-rounded">gpp_maybe</span>
+Under Attack
+</button>
+</div>
+</div>
+</div>
+<div class="col">
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">info</span>
+System Info
+</div>
+</div>
+<div id="system-info" style="font-size:14px;line-height:2">
+<div style="color:var(--text-secondary)">Loading...</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header">
+<div class="card-title">
+<span class="material-symbols-rounded">block</span>
+IP Blacklist
+</div>
+</div>
+<div style="display:flex;gap:16px;margin-bottom:20px">
+<input type="text" id="blacklist-ip" placeholder="IP Address (e.g., 192.168.1.100)" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px">
+<button class="btn btn-primary" onclick="addBlacklist()">
+<span class="material-symbols-rounded">add</span>
+Add to Blacklist
+</button>
+</div>
+<div id="blacklist-display" style="display:flex;flex-wrap:wrap;gap:10px">
+<span style="color:var(--text-dim);font-size:14px">No IPs blacklisted</span>
+</div>
+</div>
+</div>
+
+</div>
+</main>
+</div>
+<script>
+// Chart.js Configuration
+Chart.defaults.color = '#a0a0b0';
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.plugins.legend.position = 'bottom';
+Chart.defaults.plugins.legend.labels.padding = 15;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(26,26,46,0.95)';
+Chart.defaults.plugins.tooltip.titleColor = '#a855f7';
+Chart.defaults.plugins.tooltip.bodyColor = '#ffffff';
+Chart.defaults.plugins.tooltip.borderColor = 'rgba(168,85,247,0.3)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.cornerRadius = 12;
+Chart.defaults.plugins.tooltip.padding = 12;
+
+// Colors
+const purpleColors = ['#a855f7', '#c084fc', '#e879f9', '#f0abfc', '#fae8ff'];
+const severityColors = {
+  critical: '#ef4444',
+  high: '#f97316', 
+  medium: '#f59e0b',
+  low: '#10b981',
+  info: '#a855f7'
+};
+
+// State
+let charts = {};
+
+// API Helper
+async function api(endpoint, options = {}) {
+  try {
+    const res = await fetch(endpoint, options);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('API Error:', endpoint, err);
+    return null;
+  }
+}
+
+// Time Helper
+function timeAgo(timestamp) {
+  if (!timestamp) return '—';
+  const normalized = (typeof timestamp === 'string' && !timestamp.endsWith('Z')) ? timestamp + 'Z' : timestamp;
+  const seconds = Math.floor((Date.now() - new Date(normalized).getTime()) / 1000);
+  if (isNaN(seconds) || seconds < 0) return 'now';
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 86400) + 'd';
+}
+
+// Badge Helper
+function getBadge(severity) {
+  const s = (severity || 'info').toLowerCase();
+  const classes = {
+    critical: 'badge-critical',
+    high: 'badge-high',
+    medium: 'badge-medium',
+    low: 'badge-low'
+  };
+  return `<span class="badge ${classes[s] || 'badge-info'}">${s.toUpperCase()}</span>`;
+}
+// Chart Creators
+function createDonutChart(canvasId, value, max, color) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  
+  if (charts[canvasId]) charts[canvasId].destroy();
+  
+  charts[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [value, Math.max(0, max - value)],
+        backgroundColor: [color, 'rgba(168,85,247,0.1)'],
+        borderWidth: 0,
+        circumference: 270,
+        rotation: 225
+      }]
+    },
+    options: {
+      cutout: '75%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }
+      }
+    }
+  });
+  
+  return charts[canvasId];
+}
+
+function createPieChart(canvasId, data, labels, colors) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  
+  if (charts[canvasId]) charts[canvasId].destroy();
+  
+  if (!data || data.length === 0) {
+    data = [1];
+    labels = ['No Data'];
+    colors = ['rgba(168,85,247,0.2)'];
+  }
+  
+  charts[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#0a0a0f'
+      }]
+    },
+    options: {
+      cutout: '60%',
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            padding: 15,
+            font: { size: 12 }
+          }
+        }
+      }
+    }
+  });
+  
+  return charts[canvasId];
+}
+
+function createLineChart(canvasId, data, labels) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  
+  if (charts[canvasId]) charts[canvasId].destroy();
+  
+  const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 220);
+  gradient.addColorStop(0, 'rgba(168,85,247,0.3)');
+  gradient.addColorStop(1, 'rgba(168,85,247,0)');
+  
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Activity',
+        data: data,
+        borderColor: '#a855f7',
+        backgroundColor: gradient,
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#a855f7'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          grid: { color: 'rgba(168,85,247,0.1)' },
+          ticks: { color: '#606070' }
+        },
+        y: {
+          grid: { color: 'rgba(168,85,247,0.1)' },
+          ticks: { color: '#606070' },
+          beginAtZero: true
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+  
+  return charts[canvasId];
+}
+// Navigation
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const section = item.dataset.section;
+    
+    // Update nav
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    
+    // Update sections
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('section-' + section).classList.add('active');
+    
+    // Update header
+    const titles = {
+      overview: ['Security Overview', 'Real-time threat monitoring and analysis'],
+      threats: ['Threat Intelligence', 'Active threats and attack patterns'],
+      siem: ['SIEM Dashboard', 'Security information and event management'],
+      vulnerabilities: ['Vulnerability Management', 'CVE tracking and remediation'],
+      integrity: ['File Integrity Monitoring', 'Detect unauthorized file changes'],
+      compliance: ['Compliance & Benchmarks', 'Security configuration assessment'],
+      response: ['Active Response', 'Automated threat response playbooks'],
+      rules: ['Security Rules', 'Configure detection signatures'],
+      settings: ['System Settings', 'Configure KALKI platform']
+    };
+    
+    if (titles[section]) {
+      document.getElementById('page-title').textContent = titles[section][0];
+      document.getElementById('page-subtitle').textContent = titles[section][1];
+    }
+    
+    // Load section data
+    loadSectionData(section);
+  });
+});
+
+// Load section-specific data
+function loadSectionData(section) {
+  switch(section) {
+    case 'overview':
+      loadOverview();
+      break;
+    case 'threats':
+      loadThreats();
+      break;
+    case 'siem':
+      loadSiem();
+      break;
+    case 'vulnerabilities':
+      loadVuln();
+      break;
+    case 'integrity':
+      loadFim();
+      break;
+    case 'compliance':
+      loadSca();
+      break;
+    case 'response':
+      loadResponse();
+      break;
+    case 'rules':
+      loadRules();
+      break;
+    case 'settings':
+      loadSettings();
+      break;
+  }
+}
+// Load Overview
+async function loadOverview() {
+  try {
+    const [telemetry, dashboard, live] = await Promise.all([
+      api('/api/v1/threat-intel/alerts'),
+      api('/api/v1/siem/dashboard'),
+      api('/api/v1/telemetry/live')
+    ]);
+    
+    if (telemetry) updateTelemetry(telemetry);
+    if (dashboard) updateDashboardStats(dashboard);
+    if (live) updateLiveMetrics(live);
+  } catch (err) {
+    console.error('Overview error:', err);
+  }
+}
+
+function updateTelemetry(data) {
+  const metrics = data.metrics || {};
+  
+  // Update metric cards
+  document.getElementById('total-requests').textContent = (metrics.total_ingress || 0).toLocaleString();
+  document.getElementById('blocked-threats').textContent = (metrics.total_blocked || 0).toLocaleString();
+  
+  // Update badges
+  document.getElementById('threat-badge').textContent = metrics.total_blocked || 0;
+  document.getElementById('notif-badge').textContent = (metrics.total_blocked || 0) + (metrics.sqli_count || 0);
+  
+  // Threat distribution chart
+  const breakdown = data.breakdown || {};
+  const categories = Object.keys(breakdown);
+  const values = Object.values(breakdown);
+  if (categories.length > 0) {
+    createPieChart('chart-threat-dist', values, categories, purpleColors);
+  }
+  
+  // Timeline chart
+  const timeline = data.timeline || Array(24).fill(0);
+  const labels = Array.from({ length: 24 }, (_, i) => i + 'h');
+  createLineChart('chart-timeline', timeline.slice(-24), labels.slice(-24));
+  
+  // Events feed
+  const incidents = data.incidents || [];
+  updateEventsFeed(incidents);
+}
+
+function updateDashboardStats(data) {
+  const siem = data.siem || {};
+  document.getElementById('siem-badge').textContent = siem.unacknowledged || 0;
+}
+
+function updateLiveMetrics(data) {
+  document.getElementById('cpu-usage').textContent = (data.cpu_percent || 0).toFixed(1) + '%';
+  document.getElementById('memory-usage').textContent = (data.memory_mb || 0).toFixed(0) + 'MB';
+  document.getElementById('system-status').textContent = data.posture || 'Online';
+}
+
+function updateEventsFeed(incidents) {
+  const tbody = document.getElementById('events-feed');
+  if (!incidents || incidents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-dim)">No recent events</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = incidents.slice(0, 20).map(inc => `
+    <tr>
+      <td style="color:var(--text-dim);font-size:13px">${timeAgo(inc.timestamp)}</td>
+      <td style="color:var(--purple-light)">${inc.source_ip || '—'}</td>
+      <td>${getBadge(inc.threat_category)}</td>
+      <td style="color:var(--text-secondary);max-width:250px;overflow:hidden;text-overflow:ellipsis">${inc.target_uri || '—'}</td>
+      <td>${inc.mitigation_action === 'Blocked' ? '<span style="color:#ef4444;font-weight:600">Blocked</span>' : '<span style="color:#10b981">Allowed</span>'}</td>
+    </tr>
+  `).join('');
+}
+// Load Threats
+async function loadThreats() {
+  const data = await api('/api/v1/threat-intel/alerts');
+  if (!data) return;
+  
+  const breakdown = data.breakdown || {};
+  const categories = Object.keys(breakdown);
+  const values = Object.values(breakdown);
+  createPieChart('chart-threats', values, categories, purpleColors);
+  
+  // By severity
+  const metrics = data.metrics || {};
+  const sevData = [metrics.sqli_count || 0, metrics.xss_count || 0, metrics.total_blocked || 0];
+  const sevLabels = ['SQLi', 'XSS', 'Other'];
+  const sevColors = [severityColors.critical, severityColors.high, severityColors.medium];
+  createPieChart('chart-threat-severity', sevData, sevLabels, sevColors);
+}
+
+// Load SIEM
+async function loadSiem() {
+  try {
+    const [stats, alerts] = await Promise.all([
+      api('/api/v1/siem/stats'),
+      api('/api/v1/siem/alerts?limit=30')
+    ]);
+    
+    if (stats) {
+      document.getElementById('siem-total').textContent = stats.total || 0;
+      document.getElementById('siem-critical').textContent = stats.by_severity?.critical || 0;
+      document.getElementById('siem-high').textContent = stats.by_severity?.high || 0;
+      document.getElementById('siem-unacked').textContent = stats.unacknowledged || 0;
+    }
+    
+    const table = document.getElementById('siem-table');
+    if (!alerts || alerts.length === 0) {
+      table.innerHTML = '<div class="empty"><span class="material-symbols-rounded">inbox</span><div class="empty-text">No alerts</div></div>';
+      return;
+    }
+    
+    table.innerHTML = `<table>
+      <thead><tr><th>ID</th><th>Rule</th><th>Severity</th><th>Description</th><th>Time</th><th>Action</th></tr></thead>
+      <tbody>${alerts.map(a => `
+        <tr>
+          <td style="color:var(--text-dim)">#${a.id}</td>
+          <td style="color:var(--purple-light)">${a.rule_name || '—'}</td>
+          <td>${getBadge(a.severity)}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${a.description || ''}</td>
+          <td style="color:var(--text-dim)">${timeAgo(a.timestamp)}</td>
+          <td>${!a.acked ? `<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="ackAlert(${a.id})">ACK</button>` : '<span style="color:var(--success)">✓</span>'}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('SIEM error:', err);
+  }
+}
+
+async function ackAlert(id) {
+  await api(`/api/v1/siem/alerts/${id}/ack`, { method: 'POST' });
+  loadSiem();
+}
+// Load Vulnerabilities
+async function loadVuln() {
+  try {
+    const [stats, vulns] = await Promise.all([
+      api('/api/v1/vuln/stats'),
+      api('/api/v1/vuln/list?limit=30')
+    ]);
+    
+    if (stats) {
+      document.getElementById('vuln-total').textContent = stats.total_vulnerabilities || 0;
+      document.getElementById('vuln-cvss').textContent = (stats.average_cvss || 0).toFixed(1);
+      document.getElementById('vuln-packages').textContent = stats.total_vulnerabilities || 0;
+      
+      const sevData = stats.by_severity || {};
+      const sevLabels = Object.keys(sevData);
+      const sevValues = Object.values(sevData);
+      const sevColors = sevLabels.map(s => severityColors[s] || '#a855f7');
+      createPieChart('chart-vuln', sevValues, sevLabels, sevColors);
+    }
+    
+    const table = document.getElementById('vuln-table');
+    if (!vulns || vulns.length === 0) {
+      table.innerHTML = '<div class="empty"><span class="material-symbols-rounded">security</span><div class="empty-text">No vulnerabilities</div></div>';
+      return;
+    }
+    
+    table.innerHTML = `<table>
+      <thead><tr><th>CVE ID</th><th>Package</th><th>CVSS</th><th>Severity</th><th>Description</th></tr></thead>
+      <tbody>${vulns.slice(0, 20).map(v => `
+        <tr>
+          <td style="color:var(--purple-light);font-family:monospace">${v.cve_id || '—'}</td>
+          <td>${v.affected_packages || '—'}</td>
+          <td style="font-weight:600">${v.cvss_score || '—'}</td>
+          <td>${getBadge(v.severity)}</td>
+          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${v.description || ''}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('Vuln error:', err);
+  }
+}
+
+async function runVulnScan() {
+  try {
+    await api('/api/v1/vuln/scan', { method: 'POST' });
+    alert('Vulnerability scan started. This may take a few minutes.');
+    setTimeout(loadVuln, 3000);
+  } catch (err) {
+    alert('Scan failed: ' + err.message);
+  }
+}
+
+// Load File Integrity
+async function loadFim() {
+  try {
+    const [stats, events] = await Promise.all([
+      api('/api/v1/fim/stats'),
+      api('/api/v1/fim/events?limit=30')
+    ]);
+    
+    if (stats) {
+      document.getElementById('fim-total').textContent = stats.total_events || 0;
+      document.getElementById('fim-monitored').textContent = stats.monitored_files || 0;
+      document.getElementById('fim-modified').textContent = stats.by_change_type?.modified || 0;
+    }
+    
+    const table = document.getElementById('fim-table');
+    if (!events || events.length === 0) {
+      table.innerHTML = '<div class="empty"><span class="material-symbols-rounded">check_circle</span><div class="empty-text">No integrity issues</div></div>';
+      return;
+    }
+    
+    table.innerHTML = `<table>
+      <thead><tr><th>Time</th><th>File Path</th><th>Change Type</th><th>Old Hash</th><th>New Hash</th></tr></thead>
+      <tbody>${events.map(e => `
+        <tr>
+          <td style="color:var(--text-dim)">${timeAgo(e.timestamp)}</td>
+          <td style="color:var(--purple-light);font-family:monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis">${e.file_path || '—'}</td>
+          <td>${getBadge(e.change_type)}</td>
+          <td style="font-family:monospace;font-size:11px">${(e.old_hash || '').slice(0, 12)}</td>
+          <td style="font-family:monospace;font-size:11px">${(e.new_hash || '').slice(0, 12)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('FIM error:', err);
+  }
+}
+
+async function runFimCheck() {
+  try {
+    await api('/api/v1/fim/record-baseline', { method: 'POST' });
+    alert('File integrity check started');
+    setTimeout(loadFim, 2000);
+  } catch (err) {
+    alert('Check failed: ' + err.message);
+  }
+}
+// Load Compliance
+async function loadSca() {
+  try {
+    const [stats, results] = await Promise.all([
+      api('/api/v1/sca/stats'),
+      api('/api/v1/sca/results')
+    ]);
+    
+    if (stats) {
+      const score = stats.average_score || 0;
+      document.getElementById('compliance-score').textContent = score.toFixed(1) + '%';
+      createDonutChart('chart-compliance', score, 100, score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444');
+    }
+    
+    const table = document.getElementById('sca-table');
+    if (!results || results.length === 0) {
+      table.innerHTML = '<div class="empty"><span class="material-symbols-rounded">pending</span><div class="empty-text">No benchmarks run</div></div>';
+      return;
+    }
+    
+    table.innerHTML = `<table>
+      <thead><tr><th>Benchmark</th><th>Total Checks</th><th>Passed</th><th>Score</th><th>Time</th></tr></thead>
+      <tbody>${results.map(r => `
+        <tr>
+          <td style="color:var(--purple-light)">${r.benchmark_id || '—'}</td>
+          <td>${r.total_checks || 0}</td>
+          <td style="color:var(--success)">${r.passed_checks || 0}</td>
+          <td style="font-weight:600;color:${r.score >= 80 ? 'var(--success)' : r.score >= 50 ? 'var(--warning)' : 'var(--danger)'}">${(r.score || 0).toFixed(1)}%</td>
+          <td style="color:var(--text-dim)">${timeAgo(r.timestamp)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('SCA error:', err);
+  }
+}
+
+async function runSca() {
+  try {
+    await api('/api/v1/sca/run', { method: 'POST' });
+    alert('Compliance benchmark started');
+    setTimeout(loadSca, 3000);
+  } catch (err) {
+    alert('Benchmark failed: ' + err.message);
+  }
+}
+
+// Load Response
+async function loadResponse() {
+  try {
+    const [playbooks, log] = await Promise.all([
+      api('/api/v1/response/playbooks'),
+      api('/api/v1/response/log?limit=30')
+    ]);
+    
+    const pbList = document.getElementById('playbooks-list');
+    if (!playbooks || Object.keys(playbooks).length === 0) {
+      pbList.innerHTML = '<div class="empty"><span class="material-symbols-rounded">integration_instructions</span><div class="empty-text">No playbooks</div></div>';
+    } else {
+      pbList.innerHTML = Object.entries(playbooks).map(([id, p]) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px">${p.name}</div>
+            <div style="font-size:13px;color:var(--text-dim)">${p.description || ''}</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            ${getBadge(p.severity || 'info')}
+            <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="execPlaybook('${id}')">Execute</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    const logTable = document.getElementById('response-log');
+    if (!log || log.length === 0) {
+      logTable.innerHTML = '<div class="empty"><span class="material-symbols-rounded">pending_actions</span><div class="empty-text">No executions</div></div>';
+      return;
+    }
+    
+    logTable.innerHTML = `<table>
+      <thead><tr><th>Time</th><th>Playbook</th><th>Target</th><th>Status</th></tr></thead>
+      <tbody>${log.map(e => `
+        <tr>
+          <td style="color:var(--text-dim)">${timeAgo(e.timestamp)}</td>
+          <td style="color:var(--purple-light)">${e.playbook_id || '—'}</td>
+          <td>${e.target || '—'}</td>
+          <td>${e.status === 'success' || e.status === 'executed' ? '<span style="color:var(--success)">Success</span>' : e.status === 'failed' ? '<span style="color:var(--danger)">Failed</span>' : getBadge(e.status)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('Response error:', err);
+  }
+}
+
+function execPlaybook(id) {
+  const target = prompt('Enter target (IP or PID):');
+  if (!target) return;
+  api(`/api/v1/response/execute?playbook_id=${id}&target=${encodeURIComponent(target)}`, { method: 'POST' })
+    .then(() => {
+      alert('Playbook executed');
+      loadResponse();
+    })
+    .catch(err => alert('Execution failed: ' + err.message));
+}
+// Load Rules
+async function loadRules() {
+  try {
+    const rules = await api('/api/v1/rules');
+    
+    document.getElementById('rules-count').textContent = (rules?.length || 0) + ' rules';
+    
+    const table = document.getElementById('rules-table');
+    if (!rules || rules.length === 0) {
+      table.innerHTML = '<div class="empty"><span class="material-symbols-rounded">shield</span><div class="empty-text">No rules configured</div></div>';
+      return;
+    }
+    
+    const sysRules = ['sql-core-01', 'xss-scrutiny-01', 'rfi-blocker-01'];
+    table.innerHTML = `<table>
+      <thead><tr><th>Identifier</th><th>Category</th><th>Pattern</th><th>Severity</th><th>Blocks</th><th>Active</th><th>Action</th></tr></thead>
+      <tbody>${rules.map(r => {
+        const isActive = r.is_active === 1 || r.is_active === true;
+        return `
+        <tr>
+          <td style="color:var(--purple-light);font-weight:600">${r.identifier}</td>
+          <td>${getBadge(r.category)}</td>
+          <td style="font-family:monospace;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.pattern || '—'}</td>
+          <td>${getBadge(r.severity)}</td>
+          <td style="color:var(--warning)">${r.blocks_count || 0}</td>
+          <td>
+            <div onclick="toggleRule('${r.rule_id}', ${isActive})" style="width:44px;height:24px;background:${isActive ? 'var(--purple)' : 'var(--bg-elevated)'};border-radius:12px;position:relative;cursor:pointer;transition:0.3s">
+              <div style="position:absolute;top:2px;left:${isActive ? '22px' : '2px'};width:20px;height:20px;border-radius:50%;background:white;transition:0.3s;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
+            </div>
+          </td>
+          <td>${sysRules.includes(r.rule_id) ? '<span style="color:var(--text-dim);font-size:11px">SYSTEM</span>' : `<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;background:rgba(239,68,68,0.15);color:var(--danger);border-color:var(--danger)" onclick="deleteRule('${r.rule_id}')">Delete</button>`}</td>
+        </tr>
+      `}).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('Rules error:', err);
+  }
+}
+
+async function createRule() {
+  const rule = {
+    identifier: document.getElementById('rule-id').value,
+    pattern: document.getElementById('rule-pattern').value,
+    category: document.getElementById('rule-category').value || 'Custom',
+    severity: document.getElementById('rule-severity').value,
+    description: document.getElementById('rule-desc').value,
+    action: 'Drop'
+  };
+  
+  if (!rule.identifier || !rule.pattern) {
+    alert('Please fill identifier and pattern');
+    return;
+  }
+  
+  try {
+    await api('/api/v1/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule)
+    });
+    alert('Rule created successfully');
+    document.getElementById('rule-id').value = '';
+    document.getElementById('rule-pattern').value = '';
+    document.getElementById('rule-category').value = '';
+    document.getElementById('rule-desc').value = '';
+    loadRules();
+  } catch (err) {
+    alert('Failed to create rule: ' + err.message);
+  }
+}
+
+async function toggleRule(id, isActive) {
+  await api(`/api/v1/rules/${id}/toggle`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_active: !isActive })
+  });
+  loadRules();
+}
+
+async function deleteRule(id) {
+  if (!confirm('Delete this rule?')) return;
+  await api(`/api/v1/rules/${id}`, { method: 'DELETE' });
+  loadRules();
+}
+// Load Settings
+async function loadSettings() {
+  try {
+    const [posture, blacklist] = await Promise.all([
+      api('/api/v1/mitigation-posture'),
+      api('/api/v1/blacklist')
+    ]);
+    
+    // Posture buttons
+    document.querySelectorAll('.posture-btn').forEach(btn => {
+      const isActive = btn.dataset.posture === posture.posture;
+      btn.classList.toggle('active', isActive);
+      if (isActive) {
+        btn.style.background = 'linear-gradient(135deg, var(--purple), var(--purple-dark))';
+        btn.style.color = 'white';
+      } else {
+        btn.style.background = 'var(--purple-dim)';
+        btn.style.color = 'var(--purple-light)';
+      }
+      btn.onclick = () => setPosture(btn.dataset.posture);
+    });
+    
+    // Blacklist
+    const ips = blacklist.blacklisted_ips || [];
+    const display = document.getElementById('blacklist-display');
+    if (ips.length === 0) {
+      display.innerHTML = '<span style="color:var(--text-dim);font-size:14px">No IPs blacklisted</span>';
+    } else {
+      display.innerHTML = ips.map(ip => `
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:10px;color:var(--danger)">
+          <span style="font-family:monospace">${ip}</span>
+          <span class="material-symbols-rounded" style="font-size:18px;cursor:pointer" onclick="removeBlacklist('${ip}')">close</span>
+        </div>
+      `).join('');
+    }
+    
+    // System info
+    document.getElementById('system-info').innerHTML = `
+      <div style="display:grid;gap:12px">
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text-dim)">Platform</span>
+          <span style="font-weight:600">KALKI WAF v3.0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text-dim)">Posture</span>
+          <span style="font-weight:600;color:var(--purple)">${posture.posture || 'Standard'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text-dim)">Database</span>
+          <span style="font-weight:600">SQLite</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0">
+          <span style="color:var(--text-dim)">Status</span>
+          <span style="font-weight:600;color:var(--success)">● Online</span>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    console.error('Settings error:', err);
+  }
+}
+
+async function setPosture(posture) {
+  await api('/api/v1/mitigation-posture', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ posture })
+  });
+  loadSettings();
+}
+
+async function addBlacklist() {
+  const ip = document.getElementById('blacklist-ip').value.trim();
+  if (!ip) return;
+  
+  await api('/api/v1/blacklist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip_address: ip, reason: 'Manual block' })
+  });
+  
+  document.getElementById('blacklist-ip').value = '';
+  loadSettings();
+}
+
+async function removeBlacklist(ip) {
+  await api(`/api/v1/blacklist/${encodeURIComponent(ip)}`, { method: 'DELETE' });
+  loadSettings();
+}
+
+// SSE for live updates
+function startSSE() {
+  const evtSource = new EventSource('/api/v1/stream');
+  evtSource.onmessage = function(e) {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.metrics) updateLiveMetrics(data);
+      if (data.posture) document.getElementById('system-status').textContent = data.posture;
+    } catch (err) {
+      console.error('SSE error:', err);
+    }
+  };
+  evtSource.onerror = function() {
+    console.warn('SSE connection lost');
+  };
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadOverview();
+  startSSE();
+  setInterval(loadOverview, 30000);
+});
+</script>
+</body>
+</html>
