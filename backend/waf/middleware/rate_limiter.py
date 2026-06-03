@@ -63,6 +63,9 @@ async def check_rate_limit(client_ip: str) -> bool:
     state.request_history[client_ip].append(current_time)
     if len(state.request_history) > 10000:
         _cleanup_stale_ips(current_time)
+    # Also run cleanup occasionally (1% chance) to prevent unbounded growth
+    elif len(state.request_history) > 100 and client_ip and hash(client_ip) % 100 == 0:
+        _cleanup_stale_ips(current_time)
     return True
 
 

@@ -147,14 +147,14 @@ class KalkiDesktop:
         self.metrics = {}
         mf = tk.Frame(self.root, bg="#0d0d12")
         mf.pack(fill="x", padx=12, pady=4)
-        for label in ["Threats", "Alerts", "Agents", "CPU", "Mem", "Req/s"]:
+        for label in ["Threats", "Alerts", "CPU", "Mem", "Req/s"]:
             f = tk.Frame(mf, bg="#14141e", highlightbackground="#1c1c28",
                          highlightthickness=1, padx=10, pady=5)
             f.pack(side="left", padx=3, fill="x", expand=True)
             tk.Label(f, text=label, font=("Consolas", 7), fg="#6a6a78",
                      bg="#14141e").pack()
             lbl = tk.Label(f, text="—", font=("Consolas", 14, "bold"),
-                           fg="#e0dfe6", bg="#14141e")
+                            fg="#e0dfe6", bg="#14141e")
             lbl.pack()
             self.metrics[label] = lbl
 
@@ -176,28 +176,9 @@ class KalkiDesktop:
                                    relief="flat", state="disabled", padx=6, pady=4)
         self.alerts_box.pack(fill="both", expand=True)
 
-        # Right: Local Agent & Radar
+        # Right: Radar Only
         right = tk.Frame(pw, bg="#0d0d12")
         pw.add(right, width=420)
-        tk.Label(right, text="LOCAL AGENT", font=("Consolas", 8, "bold"),
-                 fg="#6a6a78", bg="#0d0d12").pack(anchor="w", pady=(0, 3))
-
-        # Local Agent Info
-        agent_info_frame = tk.Frame(right, bg="#0e0e14", highlightbackground="#1c1c28",
-                                    highlightthickness=1)
-        agent_info_frame.pack(fill="x", padx=6, pady=6)
-        self.agent_status_lbl = tk.Label(agent_info_frame, text="● Active", font=("Consolas", 10, "bold"),
-                                         fg="#4edea3", bg="#0e0e14")
-        self.agent_status_lbl.pack(side="left")
-        self.agent_hostname_lbl = tk.Label(agent_info_frame, text="Hostname: ?", font=("Consolas", 9),
-                                           fg="#e0dfe6", bg="#0e0e14")
-        self.agent_hostname_lbl.pack(side="left", padx=(10, 0))
-        self.agent_ip_lbl = tk.Label(agent_info_frame, text="IP: ?", font=("Consolas", 9),
-                                     fg="#e0dfe6", bg="#0e0e14")
-        self.agent_ip_lbl.pack(side="left", padx=(10, 0))
-        self.agent_hb_lbl = tk.Label(agent_info_frame, text="HB: ?", font=("Consolas", 9),
-                                     fg="#e0dfe6", bg="#0e0e14")
-        self.agent_hb_lbl.pack(side="left", padx=(10, 0))
 
         # Global Threat Radar
         radar_frame = tk.Frame(right, bg="#0d0d12")
@@ -378,34 +359,10 @@ class KalkiDesktop:
         siem = d.get("siem", {})
         agents = d.get("agents", {})
         self.metrics["Threats"].configure(text=str(siem.get("total", 0)))
-        self.metrics["Agents"].configure(
-            text=f"{agents.get('online', 0)}/{agents.get('total', 0)}")
         if ls:
             self.metrics["CPU"].configure(text=f'{ls.get("cpu_percent", 0):.1f}%')
             self.metrics["Mem"].configure(text=f'{ls.get("memory_mb", 0):.0f} MB')
             self.metrics["Req/s"].configure(text=f'{ls.get("requests_per_second", 0):.1f}')
-        
-        # Update local agent info
-        alist = agents.get("list", [])
-        local_hostname = socket.gethostname()
-        local_agent = None
-        for a in alist:
-            if a.get("hostname") == local_hostname:
-                local_agent = a
-                break
-        
-        if local_agent:
-            st = local_agent.get("status", "inactive")
-            self.agent_status_lbl.configure(text="● Active" if st == "active" else "○ Inactive",
-                                          fg="#4edea3" if st == "active" else "#ff4d6d")
-            self.agent_hostname_lbl.configure(text=f"Hostname: {local_agent.get('hostname', '?')}")
-            self.agent_ip_lbl.configure(text=f"IP: {local_agent.get('ip_address', '?')}")
-            hb = local_agent.get("last_heartbeat", "")
-            if hb:
-                hb_short = hb[:19] if len(hb) > 19 else hb
-                self.agent_hb_lbl.configure(text=f"HB: {hb_short}")
-            else:
-                self.agent_hb_lbl.configure(text="HB: Never")
 
     # ── Status bar ───────────────────────────────────────────────────
     def _set_status(self, msg):

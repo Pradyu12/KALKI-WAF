@@ -4,7 +4,10 @@ import threading
 
 DB_PATH = os.getenv("DB_PATH", "")
 if not DB_PATH:
-    DB_PATH = os.path.join(os.getenv("RENDER_DISK_PATH", "/tmp"), "security_gateway.db")
+    # Prefer a persistent path next to main.py; fall back to /tmp on read-only filesystems
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    _candidate = os.path.join(os.getenv("RENDER_DISK_PATH", _project_root), "security_gateway.db")
+    DB_PATH = _candidate
 
 _BUSY_TIMEOUT = 5000
 _MAX_CONNECTIONS = 10

@@ -312,115 +312,6 @@ async def remove_from_blacklist(ip: str, _: str | None = Depends(verify_admin_ke
     return {"status": "success", "message": f"IP {ip} removed from blacklist"}
 
 
-# ─── Remote Agent / Device Monitoring ────────────────────────────────────────────
-
-
-def _find_agent_script(name: str) -> str | None:
-    candidates = [
-        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "agents", name)),
-        os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "agents", name)),
-        os.path.normpath(os.path.join(os.getcwd(), "..", "agents", name)),
-        os.path.normpath(os.path.join(os.getcwd(), "agents", name)),
-    ]
-    for p in candidates:
-        if os.path.isfile(p):
-            return p
-    return None
-
-
-@router.get("/api/v1/agents/script")
-async def agent_script():
-    p = _find_agent_script("kalki-agent.py")
-    if p:
-        with open(p) as f:
-            return Response(content=f.read(), media_type="text/x-python")
-    raise HTTPException(status_code=404, detail="Agent script not found") from None
-
-
-@router.get("/api/v1/agents/script/mobile")
-async def mobile_agent_script():
-    p = _find_agent_script("mobile-agent.sh")
-    if p:
-        with open(p) as f:
-            return Response(content=f.read(), media_type="text/x-sh")
-    raise HTTPException(status_code=404, detail="Mobile agent script not found") from None
-
-
-@router.post("/api/v1/agents/register")
-async def agent_register(hostname: str, os_info: str = "", ip_address: str = "", agent_version: str = "1.0.0", tags: str = "[]"):
-    from waf.agents.engine import register_agent
-    return await run_in_threadpool(register_agent, hostname, os_info, ip_address, agent_version, tags)
-
-
-@router.get("/api/v1/agents")
-async def agent_list():
-    from waf.agents.engine import get_agents
-    return await run_in_threadpool(get_agents)
-
-
-@router.get("/api/v1/agents/{agent_id}")
-async def agent_get(agent_id: str):
-    from waf.agents.engine import get_agent
-    agent = await run_in_threadpool(get_agent, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    return agent
-
-
-@router.post("/api/v1/agents/{agent_id}/heartbeat")
-async def agent_heartbeat(agent_id: str, extra: str = "{}"):
-    from waf.agents.engine import submit_agent_heartbeat
-    try:
-        extra_dict = json.loads(extra)
-    except json.JSONDecodeError:
-        extra_dict = {}
-    result = await run_in_threadpool(submit_agent_heartbeat, agent_id, extra_dict)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
-
-
-@router.get("/api/v1/agents/{agent_id}/commands")
-async def agent_pending_commands(agent_id: str):
-    from waf.agents.engine import get_pending_commands_for
-    result = await run_in_threadpool(get_pending_commands_for, agent_id)
-    return {"commands": result, "count": len(result)}
-
-
-@router.post("/api/v1/agents/{agent_id}/commands")
-async def agent_enqueue_command(agent_id: str, command: str = "{}"):
-    from waf.agents.engine import enqueue_command
-    try:
-        cmd_dict = json.loads(command)
-    except json.JSONDecodeError:
-        cmd_dict = {"raw": command}
-    return await run_in_threadpool(enqueue_command, agent_id, cmd_dict)
-
-
-@router.post("/api/v1/agents/{agent_id}/commands/{command_id}/ack")
-async def agent_ack_command(agent_id: str, command_id: int, status: str = "delivered"):
-    from waf.agents.engine import ack_command
-    return await run_in_threadpool(ack_command, command_id, agent_id, status)
-
-
-@router.post("/api/v1/agents/{agent_id}/results")
-async def agent_submit_result(agent_id: str, result_type: str, payload: str = "{}"):
-    from waf.agents.engine import submit_agent_result
-    try:
-        payload_dict = json.loads(payload)
-    except json.JSONDecodeError:
-        payload_dict = {"raw": payload}
-    result = await run_in_threadpool(submit_agent_result, agent_id, result_type, payload_dict)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
-
-
-@router.get("/api/v1/agents/{agent_id}/results")
-async def agent_get_results(agent_id: str, result_type: str | None = None, limit: int = 50):
-    from waf.agents.engine import get_agent_results
-    return await run_in_threadpool(get_agent_results, agent_id, result_type, limit)
-
 
 # ─── SIEM (Security Information & Event Management) ──────────────────────────────
 
@@ -616,29 +507,25 @@ async def response_stats():
 
 @router.get("/api/v1/siem/dashboard")
 async def siem_dashboard():
-    from waf.agents.engine import get_agents
-    from waf.siem.engine import get_alert_stats
-    from waf.hids.engine import get_hids_stats
-    from waf.fim.engine import get_fim_stats
-    from waf.vulnerability.engine import get_vuln_stats
-    from waf.active_response.engine import get_response_stats
+     from waf.siem.engine import get_alert_stats
+     from waf.hids.engine import get_hids_stats
+     from waf.fim.engine import get_fim_stats
+     from waf.vulnerability.engine import get_vuln_stats
+     from waf.active_response.engine import get_response_stats
 
-    siem_stats, hids_stats_data, fim_stats_data, vuln_stats_data, resp_stats, agents_data = await asyncio.gather(
-        run_in_threadpool(get_alert_stats),
-        run_in_threadpool(get_hids_stats),
-        run_in_threadpool(get_fim_stats),
-        run_in_threadpool(get_vuln_stats),
-        run_in_threadpool(get_response_stats),
-        run_in_threadpool(get_agents),
-    )
-    online_agents = sum(1 for a in agents_data if a.get("status") == "active")
-    return {
-        "posture": state.GLOBAL_POSTURE,
-        "siem": siem_stats,
-        "hids": hids_stats_data,
-        "fim": fim_stats_data,
-        "vulnerability": vuln_stats_data,
-        "active_response": resp_stats,
-        "live_stats": state.LIVE_STATS,
-        "agents": {"total": len(agents_data), "online": online_agents, "list": agents_data},
-    }
+     siem_stats, hids_stats_data, fim_stats_data, vuln_stats_data, resp_stats = await asyncio.gather(
+         run_in_threadpool(get_alert_stats),
+         run_in_threadpool(get_hids_stats),
+         run_in_threadpool(get_fim_stats),
+         run_in_threadpool(get_vuln_stats),
+         run_in_threadpool(get_response_stats),
+     )
+     return {
+         "posture": state.GLOBAL_POSTURE,
+         "siem": siem_stats,
+         "hids": hids_stats_data,
+         "fim": fim_stats_data,
+         "vulnerability": vuln_stats_data,
+         "active_response": resp_stats,
+         "live_stats": state.LIVE_STATS,
+     }

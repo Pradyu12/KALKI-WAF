@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import psutil
 
@@ -38,7 +39,7 @@ def fetch_telemetry_data():
 
     total_blocked_row = query_db(
         "SELECT COUNT(*) as total FROM security_events WHERE mitigation_action = 'Blocked'", one=True
-    )  # noqa: E501
+    )
     total_blocked = total_blocked_row["total"] if total_blocked_row else 0
 
     sqli_count_row = query_db("SELECT COUNT(*) as total FROM security_events WHERE threat_category = 'SQLi'", one=True)
@@ -49,20 +50,46 @@ def fetch_telemetry_data():
 
     anomalous_count_row = query_db(
         "SELECT COUNT(*) as total FROM security_events WHERE threat_category = 'Anomalous'", one=True
-    )  # noqa: E501
+    )
     anomalous_count = anomalous_count_row["total"] if anomalous_count_row else 0
 
+    # ── Breakdown by threat category (for doughnut chart) ──────────────
+    breakdown_rows = query_db(
+        "SELECT threat_category, COUNT(*) as cnt FROM security_events GROUP BY threat_category"
+    ) or []
+    breakdown: dict[str, int] = {}
+    for row in breakdown_rows:
+        cat = row.get("threat_category") or "Other"
+        breakdown[cat] = row.get("cnt", 0)
+
+    # ── 24-hour timeline (hourly buckets) ───────────────────────────────
+    now_utc = datetime.now(UTC)
+    timeline: list[int] = []
+    for h in range(23, -1, -1):
+        hour_start = (now_utc - timedelta(hours=h + 1)).strftime("%Y-%m-%d %H:%M:%S")
+        hour_end = (now_utc - timedelta(hours=h)).strftime("%Y-%m-%d %H:%M:%S")
+        row = query_db(
+            "SELECT COUNT(*) as cnt FROM security_events WHERE timestamp >= ? AND timestamp < ?",
+            (hour_start, hour_end),
+            one=True,
+        )
+        timeline.append(row["cnt"] if row else 0)
+
+    # ── Recent incidents with live geo ──────────────────────────────────
     incidents = query_db("""
         SELECT incident_id, timestamp, source_ip, threat_category, target_uri, mitigation_action, user_agent, malicious_payload
         FROM security_events
         ORDER BY timestamp DESC LIMIT 30
-    """)  # noqa: E501
-    if not incidents:
-        incidents = []
+    """) or []
 
     for inc in incidents:
-        if inc["timestamp"] and not isinstance(inc["timestamp"], str):
-            inc["timestamp"] = inc["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
+        # Normalise timestamp to plain string (no trailing Z)
+        ts = inc.get("timestamp")
+        if ts and not isinstance(ts, str):
+            inc["timestamp"] = ts.strftime("%Y-%m-%d %H:%M:%S")
+        elif isinstance(ts, str):
+            inc["timestamp"] = ts.rstrip("Z")
+
         from waf.security.geoip import get_geo_location
         geo = get_geo_location(inc.get("source_ip", ""))
         inc["geo"] = {
@@ -72,9 +99,7 @@ def fetch_telemetry_data():
             "country": geo.get("country"),
         }
 
-    rules = query_db("SELECT * FROM rules")
-    if not rules:
-        rules = []
+    rules = query_db("SELECT * FROM rules") or []
 
     db_type = "FIREBASE" if FIREBASE_ENABLED else "SQLITE"
 
@@ -98,6 +123,8 @@ def fetch_telemetry_data():
             "lon": FIREWALL_LON,
             "label": FIREWALL_LABEL,
         },
+        "breakdown": breakdown,
+        "timeline": timeline,
         "incidents": incidents,
         "rules": rules,
     }

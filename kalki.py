@@ -4,18 +4,14 @@ KALKI — Unified Launcher
 Start the full WAF stack locally. No cloud dependency.
 
 Usage:
-  python3 kalki.py                        # Full stack: backend + agent + desktop + browser
-  python3 kalki.py server                 # Start backend only (headless)
-  python3 kalki.py desktop                # Desktop app only (connect to localhost)
-  python3 kalki.py desktop --server URL   # Desktop app → remote server
-  python3 kalki.py agent                  # Register local machine as an agent
-  python3 kalki.py agent start            # Register + start local monitoring
-  python3 kalki.py agent stop             # Stop local agent
-  python3 kalki.py agent status           # Check if agent is running
-  python3 kalki.py status                 # Show overall KALKI status
-  sudo python3 kalki.py install           # Install as system service (auto-start on boot)
-  sudo python3 kalki.py uninstall         # Remove system service
-  python3 kalki.py stop                   # Stop all KALKI processes
+   python3 kalki.py                        # Full stack: backend + desktop + browser
+   python3 kalki.py server                 # Start backend only (headless)
+   python3 kalki.py desktop                # Desktop app only (connect to localhost)
+   python3 kalki.py desktop --server URL   # Desktop app → remote server
+   python3 kalki.py status                 # Show overall KALKI status
+   sudo python3 kalki.py install           # Install as system service (auto-start on boot)
+   sudo python3 kalki.py uninstall         # Remove system service
+   python3 kalki.py stop                   # Stop all KALKI processes
 """
 
 import os
@@ -35,8 +31,6 @@ KALKI_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = KALKI_DIR / "backend"
 VENV_DIR = KALKI_DIR / ".venv"
 PID_FILE = Path(tempfile.gettempdir()) / "kalki-server.pid"
-AGENT_PID_FILE = Path(tempfile.gettempdir()) / "kalki-agent.pid"
-AGENT_ID_FILE = KALKI_DIR / ".agent-id"
 DEFAULT_PORT = 8080
 _kalki_procs: list[subprocess.Popen] = []
 
@@ -192,85 +186,6 @@ def open_browser(port: int = DEFAULT_PORT):
     webbrowser.open(url)
 
 
-# ── local agent ─────────────────────────────────────────────────────────
-
-def _get_agent_id() -> str:
-    """Read or create a persistent agent ID for this machine."""
-    if AGENT_ID_FILE.exists():
-        return AGENT_ID_FILE.read_text().strip()
-    import uuid
-    agent_id = str(uuid.uuid4())[:12]
-    AGENT_ID_FILE.write_text(agent_id)
-    return agent_id
-
-
-def _stop_local_agent():
-    """Stop the local monitoring agent."""
-    if AGENT_PID_FILE.exists():
-        try:
-            pid = int(AGENT_PID_FILE.read_text().strip())
-            os.kill(pid, signal.SIGTERM)
-            time.sleep(0.5)
-            print(f"[KALKI] Agent stopped (PID {pid})")
-        except (ProcessLookupError, ValueError, OSError):
-            print("[KALKI] Agent not running")
-        AGENT_PID_FILE.unlink(missing_ok=True)
-
-
-def _register_local_agent(port: int = DEFAULT_PORT) -> str | None:
-    """Register this machine as an agent with the local WAF."""
-    agent_id = _get_agent_id()
-    hostname = socket.gethostname()
-    os_info = f"{sys.platform} python={sys.version.split()[0]}"
-    ip = "127.0.0.1"
-    url = f"http://127.0.0.1:{port}/api/v1/agents/register"
-    params = f"?hostname={urllib.parse.quote(hostname)}&os_info={urllib.parse.quote(os_info)}&ip_address={ip}&agent_version=2.0.0"
-    try:
-        req = urllib.request.Request(url + params, method="POST")
-        resp = urllib.request.urlopen(req, timeout=5)
-        data = json.loads(resp.read())
-        print(f"[KALKI] Agent registered: {hostname} ({agent_id})")
-        return agent_id
-    except Exception as e:
-        print(f"[KALKI] Agent registration failed: {e}")
-        return None
-
-
-def _start_local_agent(port: int = DEFAULT_PORT):
-    """Start the local monitoring agent as a subprocess."""
-    if AGENT_PID_FILE.exists():
-        try:
-            pid = int(AGENT_PID_FILE.read_text().strip())
-            os.kill(pid, 0)
-            print(f"[KALKI] Agent already running (PID {pid})")
-            return
-        except (ProcessLookupError, OSError, ValueError):
-            AGENT_PID_FILE.unlink(missing_ok=True)
-
-    agent_py = KALKI_DIR / "agents" / "kalki-agent.py"
-    if not agent_py.exists():
-        print(f"[KALKI] Agent script not found: {agent_py}", file=sys.stderr)
-        return
-
-    agent_id = _get_agent_id()
-    server = f"http://127.0.0.1:{port}"
-    print(f"[KALKI] Starting local agent (ID: {agent_id}) ...")
-    agent_env = os.environ.copy()
-    agent_env.pop("LD_PRELOAD", None)
-    agent_env["GTK_MODULES"] = ""
-    proc = subprocess.Popen(
-        [_find_python(), str(agent_py),
-         "--server", server,
-         "--agent-id", agent_id],
-        env=agent_env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    AGENT_PID_FILE.write_text(str(proc.pid))
-    _kalki_procs.append(proc)
-    print(f"[KALKI] Agent running (PID {proc.pid})")
-
-
 # ── stop ───────────────────────────────────────────────────────────────
 
 _stopped = False
@@ -280,16 +195,25 @@ def stop_all():
     if _stopped:
         return
     _stopped = True
+
     # Kill children
-    for p in _kalki_procs:
+    for p in _kalki_procs[:]:  # Create a copy since we may modify the list
         try:
             p.terminate()
-            p.wait(timeout=3)
+            try:
+                p.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                p.wait(timeout=2)
+        except ProcessLookupError:
+            pass  # Process already terminated
         except Exception:
             try:
                 p.kill()
-            except Exception:
+            except ProcessLookupError:
                 pass
+
+    _kalki_procs.clear()
 
     # Kill from PID file
     if PID_FILE.exists():
@@ -297,23 +221,21 @@ def stop_all():
             pid = int(PID_FILE.read_text().strip())
             os.kill(pid, signal.SIGTERM)
             time.sleep(0.5)
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         except (ProcessLookupError, ValueError, OSError):
             pass
         PID_FILE.unlink(missing_ok=True)
 
-    # Kill agent from PID file
-    if AGENT_PID_FILE.exists():
-        try:
-            pid = int(AGENT_PID_FILE.read_text().strip())
-            os.kill(pid, signal.SIGTERM)
-            time.sleep(0.3)
-        except (ProcessLookupError, ValueError, OSError):
-            pass
-        AGENT_PID_FILE.unlink(missing_ok=True)
-
     # Also kill any lingering uvicorn on our port
     try:
         subprocess.run(["fuser", "-k", f"{DEFAULT_PORT}/tcp"],
+                       capture_output=True, timeout=5)
+    except subprocess.TimeoutExpired:
+        print("[WARN] Force killing processes on port")
+        subprocess.run(["fuser", "-k", "-9", f"{DEFAULT_PORT}/tcp"],
                        capture_output=True, timeout=5)
     except Exception:
         pass
@@ -387,31 +309,24 @@ def _do_status():
         r = urllib.request.urlopen(f"http://127.0.0.1:{DEFAULT_PORT}/health", timeout=3)
         data = json.loads(r.read())
         print(f"  Server:  ● LIVE  ({data.get('version', '?')})")
-    except Exception:
+    except urllib.error.URLError:
         print(f"  Server:  ○ DOWN  (http://127.0.0.1:{DEFAULT_PORT})")
-
-    # Agent
-    if AGENT_PID_FILE.exists():
-        try:
-            pid = int(AGENT_PID_FILE.read_text().strip())
-            os.kill(pid, 0)
-            print(f"  Agent:   ● running  (PID {pid})")
-        except (ProcessLookupError, OSError, ValueError):
-            print("  Agent:   ○ stopped")
-    else:
-        print("  Agent:   ○ stopped")
 
     # Systemd service
     try:
         r = subprocess.run(["systemctl", "is-active", SERVICE_NAME],
-                           capture_output=True, text=True, timeout=5)
+                           capture_output=True, text=True, timeout=5, stderr=subprocess.DEVNULL)
         status = r.stdout.strip()
         dot = "●" if status == "active" else "○"
         print(f"  Service: {dot} {status}")
         if r.returncode == 0:
             r2 = subprocess.run(["systemctl", "is-enabled", SERVICE_NAME],
-                                capture_output=True, text=True, timeout=5)
+                                capture_output=True, text=True, timeout=5, stderr=subprocess.DEVNULL)
             print(f"  Autostart: {r2.stdout.strip()}")
+    except subprocess.TimeoutExpired:
+        print(f"  Service: ○ timeout checking status")
+    except FileNotFoundError:
+        print(f"  Service: ○ systemd not available")
     except Exception:
         print(f"  Service: ○ not installed")
 
@@ -423,6 +338,8 @@ def _do_status():
             print(f"  Desktop: ● running")
         else:
             print(f"  Desktop: ○ not running (launch: python3 kalki.py desktop)")
+    except subprocess.TimeoutExpired:
+        print(f"  Desktop: ○ timeout checking status")
     except Exception:
         pass
 
@@ -432,40 +349,7 @@ def _do_status():
 # ── CLI ────────────────────────────────────────────────────────────────
 
 def main():
-    # Handle agent subcommand before argparse (since it has its own sub-modes)
-    if len(sys.argv) > 1 and sys.argv[1] == "agent":
-        sub_mode = sys.argv[2] if len(sys.argv) > 2 else "register"
-        port = DEFAULT_PORT
-        # Check for --port in remaining args
-        for i, arg in enumerate(sys.argv):
-            if arg == "--port" and i + 1 < len(sys.argv):
-                port = int(sys.argv[i + 1])
-        if sub_mode == "stop":
-            _stop_local_agent()
-            return
-        elif sub_mode == "status":
-            if AGENT_PID_FILE.exists():
-                try:
-                    pid = int(AGENT_PID_FILE.read_text().strip())
-                    os.kill(pid, 0)
-                    print(f"[KALKI] Agent running (PID {pid})")
-                except (ProcessLookupError, OSError, ValueError):
-                    print("[KALKI] Agent not running (stale PID)")
-            else:
-                print("[KALKI] Agent not running")
-            return
-
-        # register/start need venv + server
-        if not _ensure_venv():
-            print("[KALKI] Setup failed — install deps manually: pip install -r backend/requirements.txt")
-            sys.exit(1)
-        if not _wait_for_server(port):
-            print(f"[KALKI] Server not ready on port {port} — start it first: python3 kalki.py server")
-            return
-        _register_local_agent(port)
-        if sub_mode == "start":
-            _start_local_agent(port)
-        return
+    
 
     import argparse
     parser = argparse.ArgumentParser(description="KALKI — Local WAF Stack")
@@ -537,10 +421,6 @@ def main():
     if not proc:
         # Server might already be running
         pass
-
-    # Register + start local agent
-    _register_local_agent(args.port)
-    _start_local_agent(args.port)
 
     if not args.no_browser:
         open_browser(args.port)

@@ -64,9 +64,12 @@ def log_incident_to_db(event_data: dict):
         event_data["malicious_payload"], event_data["threat_category"],
         event_data["mitigation_action"],
     )
-    success = execute_db(query, args)
-    if not success:
-        print("[CRITICAL] Database Persistence Failure inside log_incident_to_db")
+    try:
+        success = execute_db(query, args)
+        if not success:
+            print("[CRITICAL] Database Persistence Failure inside log_incident_to_db")
+    except Exception as e:
+        print(f"[ERROR] Failed to log incident to database: {e}")
 
 
 async def count_request(request: Request, call_next):

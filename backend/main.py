@@ -92,13 +92,16 @@ app.middleware("http")(inspect_and_proxy_traffic)
 app.include_router(router)
 
 if __name__ == "__main__":
+    import os
     try:
         import subprocess
-        result = subprocess.run(["fuser", "-k", "8000/tcp"], capture_output=True, timeout=5)
+        port = int(os.getenv("KALKI_PORT", "8080"))
+        result = subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=5)
         if result.returncode == 0:
-            print("[INFO] Freed port 8000")
+            print(f"[INFO] Freed port {port}")
     except Exception:
         pass
 
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    port = int(os.getenv("KALKI_PORT", "8080"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
