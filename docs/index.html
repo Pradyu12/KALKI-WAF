@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KALKI-WAF</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: #0d0d12;
+            color: #e0dfe6;
+            padding: 2rem;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+        .tagline {
+            color: #00dddd;
+            font-style: italic;
+            margin-top: 0.5rem;
+        }
+        section {
+            margin-top: 2rem;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .feature {
+            background: #14141e;
+            border: 1px solid #1c1c28;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+        .feature h3 {
+            margin-top: 0;
+            color: #00dddd;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: #6a6a78;
+            font-size: 0.9rem;
+        }
+        a {
+            color: #00dddd;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .btn {
+            display: inline-block;
+            background: #00dddd;
+            color: #0d0d12;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        .btn:hover {
+            background: #00b3b3;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>KALKI-WAF</h1>
+        <p class="tagline">Core Web Application Firewall Platform</p>
+    </header>
+
+    <section>
+        <h2>Overview</h2>
+        <p>KALKI-WAF is a comprehensive Web Application Firewall platform designed for local deployment without cloud dependencies. It provides enterprise-grade security monitoring and protection for web applications.</p>
+    </section>
+
+    <section>
+        <h2>Features</h2>
+        <div class="features">
+            <div class="feature">
+                <h3>Core Security Modules</h3>
+                <p>SIEM, HIDS, FIM, SCA, Vulnerability Assessment, and Active Response capabilities.</p>
+            </div>
+            <div class="feature">
+                <h3>Desktop Client</h3>
+                <p>Native desktop application for real-time monitoring and management.</p>
+            </div>
+            <div class="feature">
+                <h3>System Service</h3>
+                <p>Can be installed as a systemd service for automatic startup on boot.</p>
+            </div>
+            <div class="feature">
+                <h3>API Protection</h3>
+                <p>Admin API key required for write operations to ensure security.</p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Getting Started</h2>
+        <p>To deploy KALKI-WAF locally:</p>
+        <ol>
+            <li>Clone the repository: <code>git clone https://github.com/Pradyu12/KALKI-WAF.git</code></li>
+            <li>Install dependencies: <code>pip install -r backend/requirements.txt</code></li>
+            <li>Start the platform: <code>python3 kalki.py</code></li>
+            <li>Access the dashboard at <a href="http://localhost:8080">http://localhost:8080</a></li>
+        </ol>
+        <p>For production deployment, install as a system service:</p>
+        <ol>
+            <li>Run with sudo: <code>sudo python3 kalki.py install</code></li>
+            <li>The service will start automatically on boot.</li>
+        </ol>
+    </section>
+
+    <section>
+        <h2>Documentation</h2>
+        <p>For detailed documentation, please refer to the <a href="https://github.com/Pradyu12/KALKI-WAF/blob/main/README.md">README.md</a> in the repository.</p>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2026 KALKI-WAF. All rights reserved.</p>
+        <p><a href="https://github.com/Pradyu12/KALKI-WAF">View on GitHub</a></p>
+    </footer>
+</body>
+</html>
