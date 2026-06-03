@@ -3,136 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KALKI-WAF</title>
+    <title>KALKI-WAF - Web Application Firewall</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #e0dfe6;
+            background-color: #0d0d12;
+        }
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 2rem;
         }
         header {
-            background: #0d0d12;
-            color: #e0dfe6;
-            padding: 2rem;
             text-align: center;
+            margin-bottom: 3rem;
+        }
+        header img {
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 1.5rem;
         }
         h1 {
-            margin: 0;
-            font-size: 2.5rem;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            color: #00dddd;
         }
         .tagline {
-            color: #00dddd;
             font-style: italic;
-            margin-top: 0.5rem;
-        }
-        section {
-            margin-top: 2rem;
+            color: #6a6a78;
+            margin-bottom: 2rem;
         }
         .features {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
-            margin-top: 1.5rem;
+            margin-bottom: 2.5rem;
         }
         .feature {
             background: #14141e;
             border: 1px solid #1c1c28;
             padding: 1.5rem;
             border-radius: 8px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
         .feature h3 {
-            margin-top: 0;
             color: #00dddd;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .feature p {
+            color: #aaa;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .cta-section {
+            text-align: center;
+            padding: 2.5rem;
+            background: #14141e;
+            border-radius: 12px;
+            border: 1px dashed #1c1c28;
+        }
+        .cta-section h2 {
+            color: #00dddd;
+            margin-bottom: 1.5rem;
+        }
+        .btn {
+            display: inline-block;
+            background: #00dddd;
+            color: #0d0d12;
+            padding: 0.8rem 2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: background 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #00b3b3;
+        }
+        .instructions {
+            background: #1a1a22;
+            border-left: 3px solid #00dddd;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border-radius: 0 8px 8px 0;
+        }
+        .instructions h3 {
+            color: #00dddd;
+            margin-bottom: 1rem;
+        }
+        .instructions ol {
+            padding-left: 1.5rem;
+        }
+        .instructions li {
+            margin-bottom: 0.8rem;
+            color: #ccc;
+            line-height: 1.6;
         }
         .footer {
             text-align: center;
             margin-top: 3rem;
             color: #6a6a78;
             font-size: 0.9rem;
+            padding-top: 2rem;
+            border-top: 1px solid #1c1c28;
         }
-        a {
-            color: #00dddd;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .btn {
-            display: inline-block;
-            background: #00dddd;
-            color: #0d0d12;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            margin-top: 1rem;
-        }
-        .btn:hover {
-            background: #00b3b3;
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+            .features {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 1.8rem;
+            }
         }
     </style>
 </head>
 <body>
-    <header>
-        <img src="kalki_waf_logo.png" alt="KALKI-WAF Logo" width="120" height="120" style="display: block; margin: 0 auto 1rem;">
-        <h1>KALKI-WAF</h1>
-        <p class="tagline">Core Web Application Firewall Platform</p>
-    </header>
+    <div class="container">
+        <header>
+            <img src="kalki_waf_logo.png" alt="KALKI-WAF Logo">
+            <h1>KALKI-WAF</h1>
+            <p class="tagline">Core Web Application Firewall Platform</p>
+        </header>
 
-    <section>
-        <h2>Overview</h2>
-        <p>KALKI-WAF is a comprehensive Web Application Firewall platform designed for local deployment without cloud dependencies. It provides enterprise-grade security monitoring and protection for web applications.</p>
-    </section>
-
-    <section>
-        <h2>Features</h2>
-        <div class="features">
+        <section class="features">
             <div class="feature">
-                <h3>Core Security Modules</h3>
-                <p>SIEM, HIDS, FIM, SCA, Vulnerability Assessment, and Active Response capabilities.</p>
+                <h3>🛡️ Comprehensive Protection</h3>
+                <p>Enterprise-grade security with SIEM, HIDS, FIM, SCA, Vulnerability Assessment, and Active Response capabilities.</p>
             </div>
             <div class="feature">
-                <h3>Desktop Client</h3>
-                <p>Native desktop application for real-time monitoring and management.</p>
+                <h3>💻 Native Desktop Client</h3>
+                <p>Real-time monitoring and management through a standalone desktop application.</p>
             </div>
             <div class="feature">
-                <h3>System Service</h3>
-                <p>Can be installed as a systemd service for automatic startup on boot.</p>
+                <h3>⚙️ System Service Integration</h3>
+                <p>Can be installed as a systemd service for automatic startup and background protection.</p>
             </div>
             <div class="feature">
-                <h3>API Protection</h3>
-                <p>Admin API key required for write operations to ensure security.</p>
+                <h3>🔐 API Security</h3>
+                <p>Admin API key required for write operations ensuring secure administration.</p>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <section>
-        <h2>Getting Started</h2>
-        <p>To deploy KALKI-WAF locally:</p>
-        <ol>
-            <li>Clone the repository: <code>git clone https://github.com/Pradyu12/KALKI-WAF.git</code></li>
-            <li>Install dependencies: <code>pip install -r backend/requirements.txt</code></li>
-            <li>Start the platform: <code>python3 kalki.py</code></li>
-            <li>Access the dashboard at <a href="http://localhost:8080">http://localhost:8080</a></li>
-        </ol>
-        <p>For production deployment, install as a system service:</p>
-        <ol>
-            <li>Run with sudo: <code>sudo python3 kalki.py install</code></li>
-            <li>The service will start automatically on boot.</li>
-        </ol>
-    </section>
+        <section class="cta-section">
+            <h2>Ready to Monitor Your Applications?</h2>
+            <p>To view the live KALKI-WAF dashboard with real-time data, please run the backend locally.</p>
+            <button class="btn" id="launchLocal">Open Local Dashboard</button>
+        </section>
 
-    <section>
-        <h2>Documentation</h2>
-        <p>For detailed documentation, please refer to the <a href="https://github.com/Pradyu12/KALKI-WAF/blob/main/README.md">README.md</a> in the repository.</p>
-    </section>
+        <section class="instructions">
+            <h3>How to Start the Dashboard Locally:</h3>
+            <ol>
+                <li><strong>Clone the repository:</strong> <code>git clone https://github.com/Pradyu12/KALKI-WAF.git</code></li>
+                <li><strong>Navigate to the project:</strong> <code>cd KALKI-WAF</code></li>
+                <li><strong>Install dependencies:</strong> <code>pip install -r backend/requirements.txt</code></li>
+                <li><strong>Start the platform:</strong> <code>python3 kalki.py</code></li>
+                <li><strong>Access the dashboard:</strong> Open your browser to <a href="http://localhost:8080" target="_blank" rel="noopener">http://localhost:8080</a></li>
+            </ol>
+            <p><em>For production deployment, use <code>sudo python3 kalki.py install</code> to set up as a system service.</em></p>
+        </section>
+    </div>
 
-    <footer class="footer">
-        <p>&copy; 2026 KALKI-WAF. All rights reserved.</p>
-        <p><a href="https://github.com/Pradyu12/KALKI-WAF">View on GitHub</a></p>
-    </footer>
+    <script>
+        document.getElementById('launchLocal').addEventListener('click', function() {
+            // Try to open localhost:8080 in a new tab
+            window.open('http://localhost:8080', '_blank');
+            
+            // Show a temporary message
+            const btn = this;
+            const originalText = btn.textContent;
+            btn.textContent = 'Opening...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 3000);
+        });
+    </script>
 </body>
-</html><!-- Updated Wed Jun  3 10:10:15 PM IST 2026 -->
+</html>
