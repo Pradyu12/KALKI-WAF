@@ -2,244 +2,9 @@
 <html lang="en">
 <head>
 <script>
-// KALKI-WAF Demo Mode — Mock API for GitHub Pages
+// KALKI-WAF Demo Mode flag
 if (window.location.hostname.includes('github.io') || window.location.hostname.includes('github.dev')) {
-  const MOCK_DELAY = 100;
-  const NOW = Date.now();
-  const ago = (s) => new Date(NOW - s * 1000).toISOString();
-  
-  const mockData = {
-    '/api/v1/threat-intel/alerts': () => ({
-      metrics: {
-        total_ingress: 28471,
-        total_blocked: 1423,
-        sqli_count: 312,
-        xss_count: 489,
-        rfi_count: 201,
-        cmdi_count: 177,
-        pt_count: 144,
-        other_count: 100
-      },
-      breakdown: { SQLi: 312, XSS: 489, RFI: 201, CMDi: 177, PathTraversal: 144, Other: 100 },
-      timeline: Array.from({length:24}, () => Math.floor(Math.random() * 80 + 10)),
-      incidents: [
-        { type: 'SQLi', src_ip: '45.33.32.156', method: 'POST', path: '/login', severity: 'critical', timestamp: ago(30), url: '/login', user_agent: 'Mozilla/5.0', blocked: true },
-        { type: 'XSS', src_ip: '185.220.101.42', method: 'GET', path: '/search', severity: 'high', timestamp: ago(120), url: '/search', user_agent: 'curl/7.68', blocked: true },
-        { type: 'CMDi', src_ip: '103.235.46.95', method: 'POST', path: '/api/exec', severity: 'critical', timestamp: ago(300), url: '/api/exec', user_agent: 'python-requests/2.26', blocked: true },
-        { type: 'RFI', src_ip: '91.121.87', method: 'GET', path: '/includes', severity: 'high', timestamp: ago(600), url: '/includes', user_agent: 'Go-http-client/2.0', blocked: true },
-        { type: 'SQLi', src_ip: '192.168.1.105', method: 'GET', path: '/products', severity: 'medium', timestamp: ago(900), url: '/products', user_agent: 'Mozilla/5.0', blocked: false },
-        { type: 'PT', src_ip: '78.46.89.12', method: 'GET', path: '/../../etc', severity: 'high', timestamp: ago(1800), url: '/../../etc', user_agent: 'curl/7.58', blocked: true },
-        { type: 'XSS', src_ip: '51.75.145.210', method: 'POST', path: '/feedback', severity: 'medium', timestamp: ago(3600), url: '/feedback', user_agent: 'Mozilla/5.0', blocked: true },
-      ]
-    }),
-    '/api/v1/siem/dashboard': () => ({
-      total_alerts: 1423,
-      critical: 89,
-      high: 312,
-      medium: 567,
-      low: 455,
-      trend: Array.from({length:24}, () => Math.floor(Math.random() * 50 + 5)),
-      top_ips: [
-        { ip: '45.33.32.156', count: 234 },
-        { ip: '185.220.101.42', count: 189 },
-        { ip: '103.235.46.95', count: 156 },
-        { ip: '91.121.87', count: 112 },
-        { ip: '78.46.89.12', count: 98 },
-      ],
-      top_attack_types: [
-        { type: 'SQLi', count: 312 },
-        { type: 'XSS', count: 489 },
-        { type: 'RFI', count: 201 },
-        { type: 'CMDi', count: 177 },
-        { type: 'Path Traversal', count: 144 },
-      ]
-    }),
-    '/api/v1/telemetry/live': () => ({
-      cpu_percent: 34.2,
-      memory_mb: 287.5,
-      requests_per_second: 12.4,
-      active_rules: 47,
-      uptime_seconds: 86400,
-      posture: 'standard'
-    }),
-    '/api/v1/siem/stats': () => ({
-      total: 1423,
-      critical: 89,
-      high: 312,
-      medium: 567,
-      low: 455,
-      today: 47,
-      this_week: 312,
-      this_month: 1423,
-      trend: Array.from({length:30}, () => Math.floor(Math.random() * 60 + 10))
-    }),
-    '/api/v1/siem/alerts?limit=30': () => ({
-      list: Array.from({length:30}, (_, i) => ({
-        id: `alert-${i}`,
-        type: ['SQLi','XSS','RFI','CMDi','PT'][Math.floor(Math.random()*5)],
-        src_ip: [ '45.33.32.156', '185.220.101.42', '103.235.46.95', '91.121.87', '78.46.89.12' ][Math.floor(Math.random()*5)],
-        method: ['GET','POST'][Math.floor(Math.random()*2)],
-        path: ['/login','/search','/api/exec','/includes','/products'][Math.floor(Math.random()*5)],
-        severity: ['critical','high','medium','low'][Math.floor(Math.random()*4)],
-        timestamp: ago(i * 60 + Math.floor(Math.random() * 60)),
-        blocked: Math.random() > 0.2
-      }))
-    }),
-    '/api/v1/vuln/stats': () => ({
-      total: 47, critical: 3, high: 12, medium: 18, low: 14,
-      scanned: 245, last_scan: ago(3600)
-    }),
-    '/api/v1/vuln/list?limit=30': () => ({
-      list: [
-        { id: 'CVE-2024-001', name: 'SQL Injection in Login', severity: 'critical', package: 'django 4.2', status: 'open', found: ago(86400), description: 'SQL injection vulnerability in authentication module', remediation: 'Upgrade to django 4.2.10' },
-        { id: 'CVE-2024-002', name: 'XSS in Search Feature', severity: 'high', package: 'jquery 3.6', status: 'open', found: ago(172800), description: 'Cross-site scripting in search results page', remediation: 'Upgrade to jquery 3.7' },
-        { id: 'CVE-2024-003', name: 'Command Injection in API', severity: 'critical', package: 'express 4.18', status: 'open', found: ago(259200), description: 'Command injection via improperly sanitized input', remediation: 'Apply input sanitization' },
-        { id: 'CVE-2024-004', name: 'Path Traversal', severity: 'high', package: 'nginx 1.24', status: 'fixed', found: ago(345600), description: 'Directory traversal in asset serving', remediation: 'Upgrade to nginx 1.25' },
-        { id: 'CVE-2024-005', name: 'Weak TLS Ciphers', severity: 'medium', package: 'openssl 1.1.1', status: 'open', found: ago(432000), description: 'Deprecated TLS ciphers enabled', remediation: 'Disable weak ciphers' },
-        { id: 'CVE-2024-006', name: 'Information Disclosure', severity: 'low', package: 'tomcat 9', status: 'open', found: ago(518400), description: 'Server version exposed in headers', remediation: 'Remove Server header' },
-        ...Array.from({length:24}, (_, i) => ({
-          id: `CVE-2024-${String(i+7).padStart(3,'0')}`,
-          name: `Security Issue #${i+7}`,
-          severity: ['critical','high','medium','low'][Math.floor(Math.random()*4)],
-          package: `${['apache','nginx','python','node','java'][Math.floor(Math.random()*5)]} ${Math.floor(Math.random()*5+1)}.${Math.floor(Math.random()*10)}`,
-          status: ['open','fixed','in_progress'][Math.floor(Math.random()*3)],
-          found: ago(Math.floor(Math.random()*864000)),
-          description: 'Automatically detected vulnerability requiring review',
-          remediation: 'Apply vendor patch'
-        }))
-      ]
-    }),
-    '/api/v1/fim/stats': () => ({
-      total_events: 892, added: 234, modified: 512, deleted: 146,
-      monitored_files: 3127, baseline_age_hours: 12
-    }),
-    '/api/v1/fim/events?limit=30': () => ({
-      list: Array.from({length:30}, (_, i) => ({
-        id: `fim-${i}`, file: ['/etc/shadow','/etc/passwd','/usr/bin/sshd','/var/log/auth.log','/root/.bash_history'][Math.floor(Math.random()*5)],
-        change: ['modified','added','deleted'][Math.floor(Math.random()*3)],
-        severity: ['high','medium','info'][Math.floor(Math.random()*3)],
-        timestamp: ago(i * 120),
-        new_hash: Math.random().toString(36).substring(2, 34),
-        old_hash: Math.random().toString(36).substring(2, 34)
-      }))
-    }),
-    '/api/v1/sca/stats': () => ({
-      total: 142, passed: 98, failed: 32, error: 12,
-      last_scan: ago(7200), compliance_score: 86.5
-    }),
-    '/api/v1/sca/results': () => ({
-      results: [
-        { id: 'sca-1', check: 'Password Policy', status: 'passed', severity: 'high', description: 'Password complexity requirements enforced', recommendation: 'Maintain current policy' },
-        { id: 'sca-2', check: 'SSH Config', status: 'passed', severity: 'critical', description: 'Root login disabled, key-only auth', recommendation: 'Maintain current config' },
-        { id: 'sca-3', check: 'File Permissions /etc/shadow', status: 'failed', severity: 'high', description: 'Shadow file has incorrect permissions', recommendation: 'chmod 640 /etc/shadow' },
-        { id: 'sca-4', check: 'Kernel Hardening', status: 'failed', severity: 'critical', description: 'Kernel ASLR not fully enabled', recommendation: 'Set kernel.randomize_va_space=2' },
-        { id: 'sca-5', check: 'Firewall Status', status: 'passed', severity: 'high', description: 'UFW active with default deny', recommendation: 'Maintain current rules' },
-        { id: 'sca-6', check: 'Open Ports', status: 'failed', severity: 'medium', description: 'Port 3306 exposed to public', recommendation: 'Restrict to internal network' },
-        { id: 'sca-7', check: 'Audit Logging', status: 'passed', severity: 'medium', description: 'auditd running and configured', recommendation: 'Maintain current config' },
-        { id: 'sca-8', check: 'SELinux/AppArmor', status: 'failed', severity: 'medium', description: 'AppArmor not enforcing on all profiles', recommendation: 'Enable enforcing mode' },
-        { id: 'sca-9', check: 'Password Aging', status: 'passed', severity: 'low', description: 'Password expiration set to 90 days', recommendation: 'Maintain current policy' },
-        { id: 'sca-10', check: 'Disk Encryption', status: 'failed', severity: 'medium', description: 'No LUKS on /data partition', recommendation: 'Encrypt with LUKS' },
-        ...Array.from({length:20}, (_, i) => ({
-          id: `sca-${i+11}`, check: `Security Check #${i+11}`,
-          status: ['passed','failed','error'][Math.floor(Math.random()*3)],
-          severity: ['critical','high','medium','low'][Math.floor(Math.random()*4)],
-          description: 'Automated security check result',
-          recommendation: 'Review and remediate if needed'
-        }))
-      ]
-    }),
-    '/api/v1/response/playbooks': () => ({
-      playbooks: [
-        { id: 'pb-1', name: 'Block Malicious IP', type: 'block_ip', enabled: true, description: 'Blocks an IP address across all interfaces', category: 'Network' },
-        { id: 'pb-2', name: 'Kill Suspicious Process', type: 'kill_process', enabled: true, description: 'Terminates a process by PID or name', category: 'Endpoint' },
-        { id: 'pb-3', name: 'Isolate Container', type: 'isolate', enabled: false, description: 'Network-isolates a compromised container', category: 'Container' },
-        { id: 'pb-4', name: 'Reset User Session', type: 'reset_session', enabled: true, description: 'Invalidates all sessions for a user', category: 'Identity' },
-      ]
-    }),
-    '/api/v1/response/log?limit=30': () => ({
-      log: [
-        { id: 'log-1', playbook_id: 'Block Malicious IP', target: '45.33.32.156', status: 'success', timestamp: ago(600), details: 'Blocked at firewall level' },
-        { id: 'log-2', playbook_id: 'Kill Suspicious Process', target: 'PID 2345', status: 'success', timestamp: ago(1800), details: 'Process terminated' },
-        { id: 'log-3', playbook_id: 'Block Malicious IP', target: '185.220.101.42', status: 'failed', timestamp: ago(3600), details: 'IP already blocked' },
-        ...Array.from({length:10}, (_, i) => ({
-          id: `log-${i+4}`, playbook_id: ['Block Malicious IP','Kill Suspicious Process','Reset User Session'][Math.floor(Math.random()*3)],
-          target: [ '45.33.32.156', '185.220.101.42', 'user123', '103.235.46.95' ][Math.floor(Math.random()*4)],
-          status: ['success','success','failed'][Math.floor(Math.random()*3)],
-          timestamp: ago(Math.floor(Math.random()*7200)),
-          details: 'Automated response executed'
-        }))
-      ]
-    }),
-    '/api/v1/rules': () => ({
-      rules: [
-        { id: 'rule-1', name: 'SQLi Core Ruleset', category: 'SQLi', regex: '(\\bUNION\\b.*\\bSELECT\\b|\\bSELECT\\b.*\\bFROM\\b)', severity: 'critical', enabled: true, priority: 1 },
-        { id: 'rule-2', name: 'XSS Aggressive Scrutiny', category: 'XSS', regex: '(<script|<iframe|onerror=)', severity: 'high', enabled: true, priority: 2 },
-        { id: 'rule-3', name: 'Remote File Inclusion', category: 'RFI', regex: '(include\\(|require\\(|file_get_contents)', severity: 'critical', enabled: true, priority: 3 },
-        { id: 'rule-4', name: 'Command Injection Shield', category: 'CMDi', regex: '(\\|\\s*[a-z]+|;\\s*[a-z]+|`[a-z]+)', severity: 'critical', enabled: true, priority: 4 },
-        { id: 'rule-5', name: 'Path Traversal Protection', category: 'PT', regex: '(\\.\\./|%2e%2e/)', severity: 'high', enabled: true, priority: 5 },
-        { id: 'rule-6', name: 'LDAP Injection', category: 'LDAP', regex: '(\\*\\\\)|\\(|\\)|&|\\||!)', severity: 'medium', enabled: true, priority: 6 },
-        { id: 'rule-7', name: 'NoSQL Injection', category: 'NoSQL', regex: '(\\$ne|\\$gt|\\$regex|\\$where)', severity: 'high', enabled: true, priority: 7 },
-        { id: 'rule-8', name: 'SSRF Protection', category: 'SSRF', regex: '(169\\.254|metadata\\.google|169\\.254\\.169\\.254)', severity: 'high', enabled: true, priority: 8 },
-        { id: 'rule-9', name: 'Suspicious User-Agent', category: 'Bot', regex: '(sqlmap|nikto|nmap|wpscan)', severity: 'medium', enabled: false, priority: 9 },
-        { id: 'rule-10', name: 'Rate Limit Exceeded', category: 'RateLimit', regex: '', severity: 'medium', enabled: true, priority: 10 },
-      ]
-    }),
-    '/api/v1/mitigation-posture': () => ({
-      posture: 'standard',
-      rate_limit: '50 req/10s',
-      action: 'blocks detected threats',
-      updated_at: ago(3600)
-    }),
-    '/api/v1/blacklist': () => ({
-      ips: [
-        { ip: '45.33.32.156', reason: 'SQLi Attack', blocked_at: ago(86400), expires: ago(-86400) },
-        { ip: '185.220.101.42', reason: 'XSS Scan', blocked_at: ago(172800), expires: ago(0) },
-        { ip: '103.235.46.95', reason: 'Brute Force', blocked_at: ago(259200), expires: ago(-86400) },
-      ]
-    })
-  };
-
-  // Override the api function
-  const originalApi = window.api;
-  window.api = async function(endpoint, options = {}) {
-    await new Promise(r => setTimeout(r, MOCK_DELAY));
-    
-    // Handle POST/PUT/DELETE - just return success
-    if (options.method && options.method !== 'GET') {
-      return { success: true, message: 'Mock operation completed' };
-    }
-    
-    // Strip query params for matching
-    const baseEndpoint = endpoint.split('?')[0];
-    
-    // Try exact match first, then try with limit params
-    if (mockData[endpoint]) {
-      return mockData[endpoint]();
-    }
-    
-    // Fallback for endpoints with different limits
-    for (const [key, gen] of Object.entries(mockData)) {
-      if (baseEndpoint === key.split('?')[0]) {
-        return gen();
-      }
-    }
-    
-    // Fallback
-    console.warn('Mock: Unknown endpoint', endpoint);
-    return null;
-  };
-
-  // Add demo banner
-  window.addEventListener('DOMContentLoaded', () => {
-    const banner = document.createElement('div');
-    banner.id = 'demo-banner';
-    banner.innerHTML = '🔒 <strong>Demo Mode</strong> — Showing sample data. <a href="https://github.com/Pradyu12/KALKI-WAF" target="_blank" style="color:#c084fc;text-decoration:underline">Run locally</a> for live monitoring.';
-    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:rgba(20,20,46,0.95);border-top:2px solid #a855f7;backdrop-filter:blur(12px);padding:12px 20px;text-align:center;font-family:Inter,sans-serif;font-size:14px;color:#e0dff6;border-radius:12px 12px 0 0;margin:0 12px;box-shadow:0 -4px 32px rgba(168,85,247,0.3)';
-    document.body.appendChild(banner);
-    
-    // Push body content up to not overlap banner
-    document.body.style.paddingBottom = '70px';
-  });
+  window.__DEMO_MODE__ = true;
 }
 </script>
 <meta charset="utf-8">
@@ -642,6 +407,82 @@ td{
 .empty-text{font-size:16px;font-weight:500;margin-bottom:8px}
 .empty-subtext{font-size:13px;opacity:0.6}
 /* Responsive */
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--purple-dim);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--purple)}
+/* Card stagger animation */
+.stagger-fade{
+  animation:staggerFade 0.6s ease both;
+}
+@keyframes staggerFade{
+  from{opacity:0;transform:translateY(20px) scale(0.95)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+/* Glow pulse */
+@keyframes glowPulse{
+  0%,100%{box-shadow:0 0 20px rgba(168,85,247,0.2)}
+  50%{box-shadow:0 0 40px rgba(168,85,247,0.4)}
+}
+.glow-active{border-color:var(--purple)!important;animation:glowPulse 3s ease-in-out infinite}
+/* Particle background */
+.particles{
+  position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;overflow:hidden;
+}
+.particle{
+  position:absolute;width:4px;height:4px;background:var(--purple);border-radius:50%;
+  opacity:0;animation:particleFloat 8s ease-in-out infinite;
+}
+@keyframes particleFloat{
+  0%{transform:translateY(100vh) scale(0);opacity:0}
+  20%{opacity:0.5}
+  80%{opacity:0.5}
+  100%{transform:translateY(-10vh) scale(1);opacity:0}
+}
+/* Counter animation */
+.counter-value{display:inline-block;transition:all 0.3s}
+/* Animated background gradient */
+@keyframes bgShift{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+.content{background-size:200% 200%;animation:bgShift 15s ease infinite}
+/* Card entrance stagger */
+.stagger-children > *{
+  animation:staggerFade 0.5s ease both;
+}
+.stagger-children > *:nth-child(1){animation-delay:0s}
+.stagger-children > *:nth-child(2){animation-delay:0.1s}
+.stagger-children > *:nth-child(3){animation-delay:0.2s}
+.stagger-children > *:nth-child(4){animation-delay:0.3s}
+/* Sidebar collapse */
+.sidebar.collapsed{width:72px}
+.sidebar.collapsed .logo span{display:none}
+.sidebar.collapsed .nav-item span:not(.material-symbols-rounded){display:none}
+.sidebar.collapsed .nav-item .badge{display:none}
+.sidebar.collapsed .status-section{display:none}
+/* Table improvements */
+tbody tr{transition:all 0.2s;cursor:pointer}
+tbody tr:hover{background:rgba(168,85,247,0.08);transform:translateX(4px)}
+td{padding:16px 20px;font-size:14px;color:var(--text-secondary)}
+/* Skeleton loading */
+@keyframes shimmer{
+  0%{background-position:-200px 0}
+  100%{background-position:200px 0}
+}
+.skeleton{
+  background:linear-gradient(90deg,var(--bg-card) 25%,var(--bg-elevated) 50%,var(--bg-card) 75%);
+  background-size:400px 100%;animation:shimmer 1.5s ease-in-out infinite;
+  border-radius:8px;height:20px;margin-bottom:8px;
+}
+/* Metric card icon glow on hover */
+.metric-card:hover .metric-icon{
+  transform:scale(1.1);transition:transform 0.3s;
+}
+/* System status in sidebar updated */
+.status-card:hover .pulse-dot{animation-duration:1s}
 @media(max-width:1024px){
   .sidebar{width:240px}
   .header{padding:16px 24px}
@@ -660,14 +501,18 @@ td{
 </style>
 </head>
 <body>
+<div class="particles" id="particles"></div>
 <div class="app">
 <!-- Sidebar -->
 <aside class="sidebar">
-<div class="logo-section">
+<div class="logo-section" style="display:flex;align-items:center;justify-content:space-between">
 <div class="logo">
-<img src="kalki_waf_logo.png" alt="KALKI-WAF" style="height:40px;width:40px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(168,85,247,0.5))">
-KALKI
+<img src="kalki_waf_logo.png" alt="KALKI-WAF" style="height:56px;width:56px;object-fit:contain;filter:drop-shadow(0 0 20px rgba(168,85,247,0.6))">
+<span>KALKI</span>
 </div>
+<button onclick="toggleSidebar()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px;border-radius:8px;transition:all 0.3s" title="Toggle sidebar">
+<span class="material-symbols-rounded" style="font-size:20px">menu_open</span>
+</button>
 </div>
 <nav class="nav">
 <div class="nav-item active" data-section="overview">
@@ -727,6 +572,10 @@ Settings
 <div class="header-subtitle" id="page-subtitle">Real-time threat monitoring and analysis</div>
 </div>
 <div class="header-actions">
+<div style="text-align:right;margin-right:16px">
+<div style="font-size:13px;color:var(--text-dim);font-weight:500" id="live-clock"></div>
+<div style="font-size:11px;color:var(--purple);font-weight:600">● LIVE</div>
+</div>
 <div class="search-box">
 <span class="material-symbols-rounded">search</span>
 <input type="text" placeholder="Search...">
@@ -744,7 +593,7 @@ Settings
 <div class="content">
 <!-- Overview Section -->
 <div class="section active" id="section-overview">
-<div class="metric-grid">
+<div class="metric-grid stagger-children">
 <div class="metric-card">
 <div class="metric-icon">
 <span class="material-symbols-rounded">traffic</span>
@@ -780,7 +629,7 @@ Settings
 </div>
 <div class="row">
 <div class="col-2">
-<div class="card">
+<div class="card stagger-fade">
 <div class="card-header">
 <div class="card-title">
 <span class="material-symbols-rounded">analytics</span>
@@ -793,7 +642,7 @@ Threat Distribution
 </div>
 </div>
 <div class="col">
-<div class="card">
+<div class="card stagger-fade">
 <div class="card-header">
 <div class="card-title">
 <span class="material-symbols-rounded">show_chart</span>
@@ -804,8 +653,8 @@ Activity Timeline
 </div>
 </div>
 </div>
-
-<div class="card">
+ 
+<div class="card stagger-fade">
 <div class="card-header">
 <div class="card-title">
 <span class="material-symbols-rounded">stream</span>
@@ -1244,6 +1093,9 @@ let charts = {};
 
 // API Helper
 async function api(endpoint, options = {}) {
+  if (window.__DEMO_MODE__) {
+    return window.__MOCK_API__(endpoint, options);
+  }
   try {
     const res = await fetch(endpoint, options);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1485,9 +1337,9 @@ async function loadOverview() {
 function updateTelemetry(data) {
   const metrics = data.metrics || {};
   
-  // Update metric cards
-  document.getElementById('total-requests').textContent = (metrics.total_ingress || 0).toLocaleString();
-  document.getElementById('blocked-threats').textContent = (metrics.total_blocked || 0).toLocaleString();
+  // Update metric cards with animation
+  animateCounter(document.getElementById('total-requests'), metrics.total_ingress || 0);
+  animateCounter(document.getElementById('blocked-threats'), metrics.total_blocked || 0);
   
   // Update badges
   document.getElementById('threat-badge').textContent = metrics.total_blocked || 0;
@@ -1996,12 +1848,250 @@ function startSSE() {
   };
 }
 
+// Particle background
+function createParticles() {
+  const container = document.getElementById('particles');
+  if (!container) return;
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDelay = Math.random() * 8 + 's';
+    p.style.animationDuration = (6 + Math.random() * 6) + 's';
+    p.style.width = p.style.height = (2 + Math.random() * 4) + 'px';
+    container.appendChild(p);
+  }
+}
+
+// Animated counter
+function animateCounter(el, target, suffix = '') {
+  if (!el) return;
+  const current = parseInt(el.textContent) || 0;
+  const duration = 800;
+  const start = performance.now();
+  function update(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.floor(current + (target - current) * ease) + suffix;
+    if (t < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// Sidebar collapse toggle
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('collapsed');
+}
+
+// Live clock
+function updateClock() {
+  const el = document.getElementById('live-clock');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+}
+setInterval(updateClock, 1000);
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  createParticles();
+  updateClock();
   loadOverview();
   startSSE();
   setInterval(loadOverview, 30000);
+  
+  // Demo banner
+  if (window.__DEMO_MODE__) {
+    const banner = document.createElement('div');
+    banner.id = 'demo-banner';
+    banner.innerHTML = '🔒 <strong>Demo Mode</strong> — Showing sample data. <a href="https://github.com/Pradyu12/KALKI-WAF" target="_blank" style="color:#c084fc;text-decoration:underline">Run locally</a> for live monitoring.';
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:rgba(20,20,46,0.95);border-top:2px solid #a855f7;backdrop-filter:blur(12px);padding:12px 20px;text-align:center;font-family:Inter,sans-serif;font-size:14px;color:#e0dff6;border-radius:12px 12px 0 0;margin:0 12px;box-shadow:0 -4px 32px rgba(168,85,247,0.3)';
+    document.body.appendChild(banner);
+    document.body.style.paddingBottom = '70px';
+  }
 });
+
+// Demo Mode Mock Data
+if (window.__DEMO_MODE__) {
+  const NOW = Date.now();
+  const ago = (s) => new Date(NOW - s * 1000).toISOString();
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  window.__MOCK_API__ = async function(endpoint, options = {}) {
+    await new Promise(r => setTimeout(r, 80));
+    if (options.method && options.method !== 'GET') {
+      return { success: true, message: 'Mock operation completed' };
+    }
+    const base = endpoint.split('?')[0];
+    
+    // Threat Intel
+    if (endpoint === '/api/v1/threat-intel/alerts') {
+      return {
+        metrics: { total_ingress: 28471, total_blocked: 1423, sqli_count: 312, xss_count: 489, rfi_count: 201, cmdi_count: 177, pt_count: 144, other_count: 100 },
+        breakdown: { SQLi: 312, XSS: 489, RFI: 201, CMDi: 177, 'Path Traversal': 144, Other: 100 },
+        timeline: Array.from({length:24}, () => Math.floor(Math.random() * 80 + 10)),
+        incidents: [
+          { source_ip: '45.33.32.156', threat_category: 'SQLi', target_uri: '/login', mitigation_action: 'Blocked', timestamp: ago(30) },
+          { source_ip: '185.220.101.42', threat_category: 'XSS', target_uri: '/search', mitigation_action: 'Blocked', timestamp: ago(120) },
+          { source_ip: '103.235.46.95', threat_category: 'CMDi', target_uri: '/api/exec', mitigation_action: 'Blocked', timestamp: ago(300) },
+          { source_ip: '91.121.87.12', threat_category: 'RFI', target_uri: '/includes', mitigation_action: 'Blocked', timestamp: ago(600) },
+          { source_ip: '192.168.1.105', threat_category: 'SQLi', target_uri: '/products', mitigation_action: 'Allowed', timestamp: ago(900) },
+          { source_ip: '78.46.89.12', threat_category: 'Path Traversal', target_uri: '/../../etc', mitigation_action: 'Blocked', timestamp: ago(1800) },
+          { source_ip: '51.75.145.210', threat_category: 'XSS', target_uri: '/feedback', mitigation_action: 'Blocked', timestamp: ago(3600) },
+        ]
+      };
+    }
+    
+    // SIEM Dashboard
+    if (endpoint === '/api/v1/siem/dashboard') {
+      return { total_alerts: 1423, critical: 89, high: 312, medium: 567, low: 455, unacknowledged: 312,
+        trend: Array.from({length:24}, () => Math.floor(Math.random() * 50 + 5)),
+        top_ips: [{ ip: '45.33.32.156', count: 234 }, { ip: '185.220.101.42', count: 189 }, { ip: '103.235.46.95', count: 156 }],
+        top_attack_types: [{ type: 'SQLi', count: 312 }, { type: 'XSS', count: 489 }, { type: 'RFI', count: 201 }]
+      };
+    }
+    
+    // Telemetry
+    if (endpoint === '/api/v1/telemetry/live') {
+      return { cpu_percent: 34.2, memory_mb: 287.5, requests_per_second: 12.4, active_rules: 47, uptime_seconds: 86400, posture: 'Standard' };
+    }
+    
+    // SIEM stats
+    if (base === '/api/v1/siem/stats') {
+      return { total: 1423, by_severity: { critical: 89, high: 312, medium: 567, low: 455 }, unacknowledged: 312, today: 47, this_week: 312, this_month: 1423,
+        trend: Array.from({length:30}, () => Math.floor(Math.random() * 60 + 10)) };
+    }
+    
+    // SIEM alerts
+    if (base === '/api/v1/siem/alerts') {
+      return Array.from({length:30}, (_, i) => ({
+        id: i, rule_name: pick(['SQLi Detection','XSS Scanner','RFI Blocker','CMDi Guard','PT Detector']),
+        severity: pick(['critical','high','medium','low']), description: pick(['SQL injection attempt','Cross-site scripting','Remote file inclusion','Command injection','Path traversal']),
+        timestamp: ago(i * 60), acked: Math.random() > 0.6
+      }));
+    }
+    
+    // Vuln stats
+    if (endpoint === '/api/v1/vuln/stats') {
+      return { total_vulnerabilities: 47, average_cvss: 7.2, total_packages: 245, last_scan: ago(3600),
+        by_severity: { critical: 3, high: 12, medium: 18, low: 14 } };
+    }
+    
+    // Vuln list
+    if (base === '/api/v1/vuln/list') {
+      return [
+        { cve_id: 'CVE-2024-001', affected_packages: 'django 4.2', cvss_score: 9.8, severity: 'critical', description: 'SQL injection in authentication module', status: 'open', published: ago(86400) },
+        { cve_id: 'CVE-2024-002', affected_packages: 'jquery 3.6', cvss_score: 8.2, severity: 'high', description: 'XSS in search results page', status: 'open', published: ago(172800) },
+        { cve_id: 'CVE-2024-003', affected_packages: 'express 4.18', cvss_score: 9.4, severity: 'critical', description: 'Command injection via unsanitized input', status: 'open', published: ago(259200) },
+        { cve_id: 'CVE-2024-004', affected_packages: 'nginx 1.24', cvss_score: 7.8, severity: 'high', description: 'Directory traversal in asset serving', status: 'fixed', published: ago(345600) },
+        { cve_id: 'CVE-2024-005', affected_packages: 'openssl 1.1.1', cvss_score: 5.6, severity: 'medium', description: 'Deprecated TLS ciphers enabled', status: 'open', published: ago(432000) },
+        { cve_id: 'CVE-2024-006', affected_packages: 'tomcat 9', cvss_score: 4.2, severity: 'low', description: 'Server version exposed in headers', status: 'open', published: ago(518400) },
+        { cve_id: 'CVE-2024-007', affected_packages: 'apache 2.4', cvss_score: 8.8, severity: 'high', description: 'Buffer overflow in HTTP/2 handler', status: 'open', published: ago(600000) },
+        { cve_id: 'CVE-2024-008', affected_packages: 'node 18', cvss_score: 3.5, severity: 'low', description: 'Information disclosure in error pages', status: 'fixed', published: ago(700000) },
+        ...Array.from({length:12}, (_, i) => ({
+          cve_id: `CVE-2024-${String(i+9).padStart(3,'0')}`,
+          affected_packages: pick(['apache 2.4','nginx 1.24','python 3.11','node 18','java 17','tomcat 9']),
+          cvss_score: +(Math.random() * 9 + 1).toFixed(1),
+          severity: pick(['critical','high','medium','low']),
+          description: pick(['Remote code execution','Authentication bypass','Memory corruption','XML external entity','Server-side request forgery']),
+          status: pick(['open','open','fixed','in_progress']),
+          published: ago(Math.floor(Math.random() * 800000))
+        }))
+      ];
+    }
+    
+    // FIM stats
+    if (endpoint === '/api/v1/fim/stats') {
+      return { total_events: 892, monitored_files: 3127, baseline_age_hours: 12,
+        by_change_type: { modified: 512, added: 234, deleted: 146 } };
+    }
+    
+    // FIM events
+    if (base === '/api/v1/fim/events') {
+      return Array.from({length:30}, (_, i) => ({
+        file_path: pick(['/etc/shadow','/etc/passwd','/usr/bin/sshd','/var/log/auth.log','/root/.bash_history','/etc/ssh/sshd_config','/var/www/html/index.php']),
+        change_type: pick(['modified','added','deleted']),
+        timestamp: ago(i * 120),
+        old_hash: Math.random().toString(36).substring(2, 34),
+        new_hash: Math.random().toString(36).substring(2, 34)
+      }));
+    }
+    
+    // SCA stats
+    if (endpoint === '/api/v1/sca/stats') {
+      return { average_score: 86.5, total_checks: 142, passed_checks: 98, failed_checks: 32, error_checks: 12, last_scan: ago(7200) };
+    }
+    
+    // SCA results
+    if (endpoint === '/api/v1/sca/results') {
+      return [
+        { benchmark_id: 'CIS Linux v2.0', total_checks: 142, passed_checks: 98, score: 86.5, timestamp: ago(3600) },
+        { benchmark_id: 'CIS Docker v1.4', total_checks: 89, passed_checks: 72, score: 80.9, timestamp: ago(7200) },
+        { benchmark_id: 'CIS Kubernetes v1.8', total_checks: 120, passed_checks: 95, score: 79.2, timestamp: ago(10800) },
+        { benchmark_id: 'PCI DSS v4.0', total_checks: 65, passed_checks: 60, score: 92.3, timestamp: ago(14400) },
+      ];
+    }
+    
+    // Response playbooks
+    if (endpoint === '/api/v1/response/playbooks') {
+      return {
+        'pb-1': { name: 'Block Malicious IP', type: 'block_ip', enabled: true, description: 'Blocks an IP address across all interfaces', severity: 'critical' },
+        'pb-2': { name: 'Kill Suspicious Process', type: 'kill_process', enabled: true, description: 'Terminates a process by PID or name', severity: 'high' },
+        'pb-3': { name: 'Isolate Container', type: 'isolate', enabled: false, description: 'Network-isolates a compromised container', severity: 'medium' },
+        'pb-4': { name: 'Reset User Session', type: 'reset_session', enabled: true, description: 'Invalidates all sessions for a user', severity: 'high' },
+      };
+    }
+    
+    // Response log
+    if (base === '/api/v1/response/log') {
+      return [
+        { playbook_id: 'Block Malicious IP', target: '45.33.32.156', status: 'success', timestamp: ago(600), details: 'Blocked at firewall level' },
+        { playbook_id: 'Kill Suspicious Process', target: 'PID 2345', status: 'success', timestamp: ago(1800), details: 'Process terminated' },
+        { playbook_id: 'Block Malicious IP', target: '185.220.101.42', status: 'failed', timestamp: ago(3600), details: 'IP already blocked' },
+        { playbook_id: 'Reset User Session', target: 'user_admin', status: 'success', timestamp: ago(4800), details: 'Sessions invalidated' },
+        { playbook_id: 'Kill Suspicious Process', target: 'PID 6789', status: 'executed', timestamp: ago(5400), details: 'Process terminated' },
+        { playbook_id: 'Block Malicious IP', target: '103.235.46.95', status: 'success', timestamp: ago(7200), details: 'Blocked for 24h' },
+        { playbook_id: 'Reset User Session', target: 'user_db', status: 'failed', timestamp: ago(8000), details: 'User not found' },
+        { playbook_id: 'Block Malicious IP', target: '91.121.87.12', status: 'success', timestamp: ago(10000), details: 'Blocked permanently' },
+      ];
+    }
+    
+    // Rules
+    if (endpoint === '/api/v1/rules') {
+      return [
+        { rule_id: 'sql-core-01', identifier: 'SQLi Core Ruleset', category: 'SQLi', pattern: '(\\bUNION\\b.*\\bSELECT\\b|\\bSELECT\\b.*\\bFROM\\b)', severity: 'critical', is_active: true, blocks_count: 1423 },
+        { rule_id: 'xss-scrutiny-01', identifier: 'XSS Aggressive Scrutiny', category: 'XSS', pattern: '(<script|<iframe|onerror=)', severity: 'high', is_active: true, blocks_count: 489 },
+        { rule_id: 'rfi-blocker-01', identifier: 'Remote File Inclusion', category: 'RFI', pattern: '(include\\(|require\\(|file_get_contents)', severity: 'critical', is_active: true, blocks_count: 201 },
+        { rule_id: 'cmdi-shield-01', identifier: 'Command Injection Shield', category: 'CMDi', pattern: '(\\|\\s*[a-z]+|;\\s*[a-z]+|`[a-z]+)', severity: 'critical', is_active: true, blocks_count: 177 },
+        { rule_id: 'pt-protect-01', identifier: 'Path Traversal Protection', category: 'PT', pattern: '(\\.\\./|%2e%2e/)', severity: 'high', is_active: true, blocks_count: 144 },
+        { rule_id: 'ldap-detect-01', identifier: 'LDAP Injection', category: 'LDAP', pattern: '(\\*\\\\)|\\(|\\)|&|\\||!)', severity: 'medium', is_active: true, blocks_count: 56 },
+        { rule_id: 'nosql-guard-01', identifier: 'NoSQL Injection', category: 'NoSQL', pattern: '(\\$ne|\\$gt|\\$regex)', severity: 'high', is_active: true, blocks_count: 89 },
+        { rule_id: 'ssrf-block-01', identifier: 'SSRF Protection', category: 'SSRF', pattern: '(169\\.254|metadata\\.google)', severity: 'high', is_active: true, blocks_count: 34 },
+        { rule_id: 'ua-suspect-01', identifier: 'Suspicious User-Agent', category: 'Bot', pattern: '(sqlmap|nikto|nmap)', severity: 'medium', is_active: false, blocks_count: 0 },
+        { rule_id: 'rate-limit-01', identifier: 'Rate Limit Exceeded', category: 'RateLimit', pattern: '', severity: 'medium', is_active: true, blocks_count: 567 },
+      ];
+    }
+    
+    // Mitigation posture
+    if (endpoint === '/api/v1/mitigation-posture') {
+      return { posture: 'Standard Posture', rate_limit: '50 req/10s', action: 'blocks detected threats', updated_at: ago(3600) };
+    }
+    
+    // Blacklist
+    if (endpoint === '/api/v1/blacklist') {
+      return { blacklisted_ips: [
+        { ip: '45.33.32.156', reason: 'SQLi Attack', blocked_at: ago(86400) },
+        { ip: '185.220.101.42', reason: 'XSS Scan', blocked_at: ago(172800) },
+        { ip: '103.235.46.95', reason: 'Brute Force', blocked_at: ago(259200) },
+        { ip: '91.121.87.12', reason: 'Port Scan', blocked_at: ago(345600) },
+      ]};
+    }
+    
+    // Fallback
+    console.warn('Mock: Unknown endpoint', endpoint);
+    return null;
+  };
+}
 </script>
 </body>
 </html>
