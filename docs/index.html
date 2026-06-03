@@ -11,127 +11,214 @@
             box-sizing: border-box;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            line-height: 1.6;
-            color: #e0dfe6;
-            background-color: #0d0d12;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.7;
+            color: #e0e0e0;
+            background-color: #0a0a0a;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 221, 221, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(255, 77, 109, 0.1) 0%, transparent 20%);
         }
         .container {
-            max-width: 800px;
+            max-width: 960px;
             margin: 0 auto;
             padding: 2rem;
         }
         header {
             text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid rgba(0, 221, 221, 0.2);
             margin-bottom: 3rem;
         }
-        header img {
-            max-width: 200px;
-            height: auto;
-            margin-bottom: 1.5rem;
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 1.5rem;
+            background: url('kalki_waf_logo.png') center/contain no-repeat;
+            background-size: contain;
         }
         h1 {
-            font-size: 2.2rem;
+            font-size: 2.5rem;
             margin-bottom: 0.5rem;
-            color: #00dddd;
+            background: linear-gradient(to right, #00dddd, #ff4d6d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         .tagline {
-            font-style: italic;
-            color: #6a6a78;
-            margin-bottom: 2rem;
+            font-size: 1.2rem;
+            color: #888;
+            max-width: 600px;
+            margin: 0 auto;
         }
         .features {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.75rem;
+            margin: 3rem 0;
         }
         .feature {
-            background: #14141e;
-            border: 1px solid #1c1c28;
-            padding: 1.5rem;
-            border-radius: 8px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background: rgba(20, 20, 30, 0.6);
+            border: 1px solid rgba(0, 221, 221, 0.2);
+            border-radius: 12px;
+            padding: 1.75rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, #00dddd, #ff4d6d);
         }
         .feature:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            border-color: rgba(0, 221, 221, 0.4);
+        }
+        .feature:hover::before {
+            width: 6px;
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
         }
         .feature h3 {
-            color: #00dddd;
+            font-size: 1.4rem;
             margin-bottom: 1rem;
+            color: #fff;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
         .feature p {
-            color: #aaa;
-            font-size: 0.95rem;
-            line-height: 1.5;
+            color: #bbb;
+            line-height: 1.6;
         }
         .cta-section {
             text-align: center;
-            padding: 2.5rem;
-            background: #14141e;
-            border-radius: 12px;
-            border: 1px dashed #1c1c28;
+            padding: 3rem;
+            background: rgba(20, 20, 30, 0.4);
+            border-radius: 16px;
+            border: 2px dashed rgba(0, 221, 221, 0.3);
+            margin: 3rem 0;
         }
         .cta-section h2 {
-            color: #00dddd;
+            font-size: 1.8rem;
             margin-bottom: 1.5rem;
+            color: #00dddd;
         }
         .btn {
             display: inline-block;
-            background: #00dddd;
-            color: #0d0d12;
-            padding: 0.8rem 2rem;
-            border-radius: 6px;
+            background: linear-gradient(45deg, #00dddd, #ff4d6d);
+            color: #0a0a0a;
+            padding: 0.9rem 2.5rem;
+            border-radius: 50px;
             text-decoration: none;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: background 0.2s ease;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
             border: none;
             cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 221, 221, 0.3);
         }
         .btn:hover {
-            background: #00b3b3;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 221, 221, 0.4);
+            background: linear-gradient(45deg, #00b3b3, #e04358);
+        }
+        .btn:active {
+            transform: translateY(0);
         }
         .instructions {
-            background: #1a1a22;
-            border-left: 3px solid #00dddd;
-            padding: 1.5rem;
-            margin-top: 2rem;
-            border-radius: 0 8px 8px 0;
+            background: rgba(20, 20, 30, 0.5);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            border-left: 4px solid #00dddd;
         }
         .instructions h3 {
             color: #00dddd;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
         .instructions ol {
             padding-left: 1.5rem;
         }
         .instructions li {
-            margin-bottom: 0.8rem;
-            color: #ccc;
-            line-height: 1.6;
+            margin-bottom: 1rem;
+            color: #ddd;
+            line-height: 1.7;
+            position: relative;
+            padding-left: 0.5rem;
+        }
+        .instructions li::before {
+            content: "→";
+            color: #00dddd;
+            font-weight: bold;
+            margin-right: 0.75rem;
+        }
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+            border: 1px solid rgba(0, 221, 221, 0.2);
         }
         .footer {
             text-align: center;
-            margin-top: 3rem;
-            color: #6a6a78;
+            padding: 3rem 0 1.5rem;
+            color: #666;
             font-size: 0.9rem;
-            padding-top: 2rem;
-            border-top: 1px solid #1c1c28;
+            border-top: 1px solid rgba(0, 221, 221, 0.1);
         }
-        @media (max-width: 600px) {
+        .footer a {
+            color: #00dddd;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 768px) {
             .container {
-                padding: 1rem;
+                padding: 1.5rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .tagline {
+                font-size: 1rem;
             }
             .features {
                 grid-template-columns: 1fr;
             }
+            .cta-section {
+                padding: 2rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 1rem;
+            }
+            header {
+                padding: 2rem 0;
+            }
+            .logo {
+                width: 90px;
+                height: 90px;
+            }
             h1 {
-                font-size: 1.8rem;
+                font-size: 1.7rem;
             }
         }
     </style>
@@ -139,65 +226,209 @@
 <body>
     <div class="container">
         <header>
-            <img src="kalki_waf_logo.png" alt="KALKI-WAF Logo">
+            <div class="logo" aria-label="KALKI-WAF Logo"></div>
             <h1>KALKI-WAF</h1>
             <p class="tagline">Core Web Application Firewall Platform</p>
         </header>
 
         <section class="features">
             <div class="feature">
-                <h3>🛡️ Comprehensive Protection</h3>
-                <p>Enterprise-grade security with SIEM, HIDS, FIM, SCA, Vulnerability Assessment, and Active Response capabilities.</p>
+                <div class="feature-icon">🛡️</div>
+                <h3>Enterprise Protection</h3>
+                <p>Advanced threat detection blocking SQLi, XSS, RFI, command injection, and more with real-time monitoring.</p>
             </div>
             <div class="feature">
-                <h3>💻 Native Desktop Client</h3>
-                <p>Real-time monitoring and management through a standalone desktop application.</p>
+                <div class="feature-icon">💻</div>
+                <h3>Native Desktop Client</h3>
+                <p>Standalone application for real-time security monitoring, alert management, and system control.</p>
             </div>
             <div class="feature">
-                <h3>⚙️ System Service Integration</h3>
-                <p>Can be installed as a systemd service for automatic startup and background protection.</p>
+                <div class="feature-icon">⚙️</div>
+                <h3>System Service Ready</h3>
+                <p>Deploy as a systemd service for automatic startup, background protection, and reliable operation.</p>
             </div>
             <div class="feature">
-                <h3>🔐 API Security</h3>
-                <p>Admin API key required for write operations ensuring secure administration.</p>
+                <div class="feature-icon">🔐</div>
+                <h3>Secure API Access</h3>
+                <p>Admin API key required for write operations ensuring secure administration and rule management.</p>
             </div>
-        </section>
+        </div>
 
         <section class="cta-section">
-            <h2>Ready to Monitor Your Applications?</h2>
-            <p>To view the live KALKI-WAF dashboard with real-time data, please run the backend locally.</p>
-            <button class="btn" id="launchLocal">Open Local Dashboard</button>
+            <h2>Experience the Full Dashboard</h2>
+            <p>To view the live KALKI-WAF dashboard with real-time telemetry, threat monitoring, and security controls:</p>
+            <button class="btn" id="launchBtn">Run Dashboard Locally</button>
         </section>
 
         <section class="instructions">
-            <h3>How to Start the Dashboard Locally:</h3>
+            <h3><span>📋</span> How to Deploy and Run:</h3>
             <ol>
-                <li><strong>Clone the repository:</strong> <code>git clone https://github.com/Pradyu12/KALKI-WAF.git</code></li>
-                <li><strong>Navigate to the project:</strong> <code>cd KALKI-WAF</code></li>
-                <li><strong>Install dependencies:</strong> <code>pip install -r backend/requirements.txt</code></li>
-                <li><strong>Start the platform:</strong> <code>python3 kalki.py</code></li>
-                <li><strong>Access the dashboard:</strong> Open your browser to <a href="http://localhost:8080" target="_blank" rel="noopener">http://localhost:8080</a></li>
+                <li>
+                    <strong>Get the Code:</strong>
+                    <div class="code-block">git clone https://github.com/Pradyu12/KALKI-WAF.git
+cd KALKI-WAF</div>
+                </li>
+                <li>
+                    <strong>Setup Environment:</strong>
+                    <div class="code-block"># Install Python dependencies
+pip install -r backend/requirements.txt
+
+# Optional: Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate  # Windows
+</div>
+                </li>
+                <li>
+                    <strong>Start the Platform:</strong>
+                    <div class="code-block"># Start backend + desktop client + browser
+python3 kalki.py
+
+# Or backend only (headless)
+python3 kalki.py server
+
+# Or desktop client only
+python3 kalki.py desktop
+</div>
+                </li>
+                <li>
+                    <strong>Access the Dashboard:</strong>
+                    <div class="code-block">Backend API:    http://localhost:8080
+Dashboard UI:   http://localhost:8080 (auto-opens)
+Desktop App:    Runs separately
+</div>
+                </li>
+                <li>
+                    <strong>For Production:</strong>
+                    <div class="code-block"># Install as system service (auto-start on boot)
+sudo python3 kalki.py install
+
+# Manage service
+sudo systemctl status kalki-waf
+sudo systemctl stop kalki-waf
+sudo systemctl start kalki-waf
+</div>
+                </li>
             </ol>
-            <p><em>For production deployment, use <code>sudo python3 kalki.py install</code> to set up as a system service.</em></p>
         </section>
+
+        <section class="instructions">
+            <h3><span>📊</span> What You'll See:</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                <div style="background: rgba(0, 0, 0, 0.2); padding: 1rem; border-radius: 8px;">
+                    <h4 style="color: #00dddd; margin-bottom: 0.75rem;">🔴 Real-Time Threats</h4>
+                    <p style="font-size: 0.9rem; color: #ccc;">Live attack blocking statistics and threat intelligence feeds.</p>
+                </div>
+                <div style="background: rgba(0, 0, 0, 0.2); padding: 1rem; border-radius: 8px;">
+                    <h4 style="color: #00dddd; margin-bottom: 0.75rem;">📈 System Telemetry</h4>
+                    <p style="font-size: 0.9rem; color: #ccc;">CPU, memory, request rates, and active security rules monitoring.</p>
+                </div>
+                <div style="background: rgba(0, 0, 0, 0.2); padding: 1rem; border-radius: 8px;">
+                    <h4 style="color: #00dddd; margin-bottom: 0.75rem;">🛡️ Security Events</h4>
+                    <p style="font-size: 0.9rem; color: #ccc;">Detailed alerts, blocked requests, and mitigation actions.</p>
+                </div>
+                <div style="background: rgba(0, 0, 0, 0.2); padding: 1rem; border-radius: 8px;">
+                    <h4 style="color: #00dddd; margin-bottom: 0.75rem;">📋 Rule Management</h4>
+                    <p style="font-size: 0.9rem; color: #ccc;">Create, modify, and toggle security rules via intuitive interface.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>© 2026 KALKI-WAF. All rights reserved.</p>
+            <p>
+                <a href="https://github.com/Pradyu12/KALKI-WAF" target="_blank">View on GitHub</a> |
+                <a href="https://github.com/Pradyu12/KALKI-WAF/blob/main/README.md" target="_blank">Documentation</a>
+            </p>
+        </footer>
     </div>
 
     <script>
-        document.getElementById('launchLocal').addEventListener('click', function() {
-            // Try to open localhost:8080 in a new tab
-            window.open('http://localhost:8080', '_blank');
-            
-            // Show a temporary message
+        document.getElementById('launchBtn').addEventListener('click', function() {
             const btn = this;
-            const originalText = btn.textContent;
-            btn.textContent = 'Opening...';
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = '<span>🚀 Launching...</span>';
             btn.disabled = true;
             
+            // Try to open local dashboard
+            window.open('http://localhost:8080', '_blank');
+            
+            // Reset button after delay
             setTimeout(() => {
-                btn.textContent = originalText;
+                btn.innerHTML = originalText;
                 btn.disabled = false;
             }, 3000);
+            
+            // Show temporary notification
+            showNotification('Attempting to open local dashboard at http://localhost:8080', 'info');
         });
+        
+        function showNotification(message, type = 'info') {
+            // Remove any existing notifications
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255,255,255,0.1);
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            const colors = {
+                info: '#00dddd',
+                success: '#4edea3',
+                warning: '#ffb95f',
+                error: '#ff4d6d'
+            };
+            
+            notification.style.borderLeft = `4px solid ${colors[type] || colors.info}`;
+            
+            notification.innerHTML = `
+                <span>${message}</span>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 5000);
+        }
+        
+        // Add CSS for notification animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
