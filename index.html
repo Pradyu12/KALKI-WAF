@@ -11,6 +11,7 @@ if (window.location.hostname.includes('github.io') || window.location.hostname.i
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>KALKI Security Platform</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 <style>
@@ -589,6 +590,7 @@ Settings
 </div>
 </div>
 </header>
+<div id="earth-container" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;opacity:0.3;pointer-events:none"></div>
 
 <div class="content">
 <!-- Overview Section -->
@@ -1338,7 +1340,18 @@ async function loadOverview() {
   }
 }
 
+function ipToLocation(ip) {
+  if (!ip || ip.startsWith("192.168") || ip.startsWith("10.") || ip.startsWith("172.")) {
+    return { lat: (Math.random() * 180 - 90).toFixed(2), lng: (Math.random() * 360 - 180).toFixed(2) };
+  }
+  const parts = ip.split(".");
+  if (parts.length !== 4) return { lat: 0, lng: 0 };
+  const hash = (parseInt(parts[0]) * 1000 + parseInt(parts[1]) * 100 + parseInt(parts[2])) % 1000;
+  return { lat: (hash % 180 - 90), lng: (hash * 2 % 360 - 180) };
+}
+
 function updateTelemetry(data) {
+
   const metrics = data.metrics || {};
   
   // Update metric cards with animation
@@ -1363,8 +1376,20 @@ function updateTelemetry(data) {
   createLineChart('chart-timeline', timeline.slice(-24), labels.slice(-24));
   
   // Events feed
-  const incidents = data.incidents || [];
+  let incidents = data.incidents || [];
+  incidents = incidents.map(inc => {
+    if (inc.lat === undefined && inc.lng === undefined) {
+      const loc = ipToLocation(inc.source_ip);
+      inc.lat = loc.lat;
+      inc.lng = loc.lng;
+    }
+    return inc;
+  });
   updateEventsFeed(incidents);
+  window.__lastIncidents = incidents;
+  setTimeout(() => {
+    if (typeof updateThreatDots === 'function') updateThreatDots(incidents);
+  }, 1500);
 }
 
 function updateDashboardStats(data) {
@@ -1935,13 +1960,13 @@ if (window.__DEMO_MODE__) {
         breakdown: { SQLi: 312, XSS: 489, RFI: 201, CMDi: 177, 'Path Traversal': 144, Other: 100 },
         timeline: Array.from({length:24}, () => Math.floor(Math.random() * 80 + 10)),
         incidents: [
-          { source_ip: '45.33.32.156', threat_category: 'SQLi', target_uri: '/login', mitigation_action: 'Blocked', timestamp: ago(30) },
-          { source_ip: '185.220.101.42', threat_category: 'XSS', target_uri: '/search', mitigation_action: 'Blocked', timestamp: ago(120) },
-          { source_ip: '103.235.46.95', threat_category: 'CMDi', target_uri: '/api/exec', mitigation_action: 'Blocked', timestamp: ago(300) },
-          { source_ip: '91.121.87.12', threat_category: 'RFI', target_uri: '/includes', mitigation_action: 'Blocked', timestamp: ago(600) },
-          { source_ip: '192.168.1.105', threat_category: 'SQLi', target_uri: '/products', mitigation_action: 'Allowed', timestamp: ago(900) },
-          { source_ip: '78.46.89.12', threat_category: 'Path Traversal', target_uri: '/../../etc', mitigation_action: 'Blocked', timestamp: ago(1800) },
-          { source_ip: '51.75.145.210', threat_category: 'XSS', target_uri: '/feedback', mitigation_action: 'Blocked', timestamp: ago(3600) },
+           { source_ip: '45.33.32.156', threat_category: 'SQLi', target_uri: '/login', mitigation_action: 'Blocked', timestamp: ago(30)},
+           { source_ip: '185.220.101.42', threat_category: 'XSS', target_uri: '/search', mitigation_action: 'Blocked', timestamp: ago(120)},
+           { source_ip: '103.235.46.95', threat_category: 'CMDi', target_uri: '/api/exec', mitigation_action: 'Blocked', timestamp: ago(300)},
+           { source_ip: '91.121.87.12', threat_category: 'RFI', target_uri: '/includes', mitigation_action: 'Blocked', timestamp: ago(600)},
+           { source_ip: '192.168.1.105', threat_category: 'SQLi', target_uri: '/products', mitigation_action: 'Allowed', timestamp: ago(900)},
+           { source_ip: '78.46.89.12', threat_category: 'Path Traversal', target_uri: '/../../etc', mitigation_action: 'Blocked', timestamp: ago(1800)},
+           { source_ip: '51.75.145.210', threat_category: 'XSS', target_uri: '/feedback', mitigation_action: 'Blocked', timestamp: ago(3600)},
         ]
       };
     }
@@ -2090,12 +2115,152 @@ if (window.__DEMO_MODE__) {
         { ip: '91.121.87.12', reason: 'Port Scan', blocked_at: ago(345600) },
       ]};
     }
-    
-    // Fallback
-    console.warn('Mock: Unknown endpoint', endpoint);
-    return null;
   };
 }
+
+
+// Earth Visualization with enhanced visuals
+let earthScene, earthCamera, earthRenderer, earthMesh, threatDots = [], latLongToVec3;
+latLongToVec3 = (lat, lng, radius = 2.02) => {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lng + 180) * (Math.PI / 180);
+  return new THREE.Vector3(
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
+};
+
+function initEarth() {
+  const container = document.getElementById('earth-container');
+  if (!container || !window.THREE) return;
+  
+  earthScene = new THREE.Scene();
+  earthCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  earthCamera.position.set(0, 0, 4.5);
+  
+  earthRenderer = new THREE.WebGLRenderer({ 
+    antialias: true, 
+    alpha: true,
+    powerPreference: 'low-power'
+  });
+  earthRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  earthRenderer.setSize(window.innerWidth, window.innerHeight);
+  earthRenderer.setClearColor(0x000000, 0);
+  container.appendChild(earthRenderer.domElement);
+  
+  // Main Earth sphere
+  const earthGeometry = new THREE.SphereGeometry(2, 96, 96);
+  const textureLoader = new THREE.TextureLoader();
+  const earthTexture = textureLoader.load('https://cdn.jsdelivr.net/npm/three-globe@2.32.0/example/img/earth-blue-marble.jpg', () => {
+    animateEarth();
+  });
+  
+  const earthMaterial = new THREE.MeshPhongMaterial({
+    map: earthTexture,
+    shininess: 15,
+    specular: 0x333333
+  });
+  
+  earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+  earthScene.add(earthMesh);
+  
+  // Purple atmosphere glow
+  const atmosphereGeometry = new THREE.SphereGeometry(2.15, 64, 64);
+  const atmosphereMaterial = new THREE.MeshBasicMaterial({
+    color: 0xa855f7,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending
+  });
+  const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+  earthScene.add(atmosphere);
+  
+  // Inner glow
+  const glowGeometry = new THREE.SphereGeometry(1.99, 64, 64);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x6366f1,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.FrontSide,
+    blending: THREE.AdditiveBlending
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  earthScene.add(glow);
+  
+  // Threat dots group
+  const dotsGroup = new THREE.Group();
+  earthScene.add(dotsGroup);
+  
+  const dotGeometry = new THREE.SphereGeometry(0.04, 16, 16);
+  const dotMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xef4444,
+    transparent: true,
+    opacity: 0.9
+  });
+  
+  const pulseGeometry = new THREE.RingGeometry(0.05, 0.12, 16);
+  const pulseMaterial = new THREE.MeshBasicMaterial({
+    color: 0xf87171,
+    transparent: true,
+    opacity: 0.4,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending
+  });
+  
+  function updateThreatDots(incidents) {
+    while(dotsGroup.children.length) { dotsGroup.remove(dotsGroup.children[0]); }
+    threatDots = [];
+    
+    if (!incidents || incidents.length === 0) return;
+    
+    incidents.forEach(inc => {
+      if (inc.lat !== undefined && inc.lng !== undefined) {
+        const pos = latLongToVec3(inc.lat, inc.lng);
+        
+        const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+        dot.position.copy(pos);
+        dotsGroup.add(dot);
+        threatDots.push({ mesh: dot, pulsePhase: Math.random() * Math.PI * 2 });
+        
+        const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+        pulse.position.copy(pos);
+        pulse.lookAt(earthCamera.position);
+        dotsGroup.add(pulse);
+      }
+    });
+  }
+  
+  window.updateThreatDots = updateThreatDots;
+  updateThreatDots(window.__lastIncidents || []);
+  
+  window.addEventListener('resize', () => {
+    earthCamera.aspect = window.innerWidth / window.innerHeight;
+    earthCamera.updateProjectionMatrix();
+    earthRenderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function animateEarth() {
+  if (!earthRenderer || !earthScene || !earthCamera) return;
+  
+  const time = Date.now() * 0.0005;
+  earthMesh.rotation.y = time * 0.1;
+  
+  threatDots.forEach((t, i) => {
+    const scale = 1 + Math.sin(time * 2 + t.pulsePhase) * 0.3;
+    t.mesh.scale.setScalar(scale);
+  });
+  
+  earthRenderer.render(earthScene, earthCamera);
+  requestAnimationFrame(animateEarth);
+}
+
+// Initialize Earth on load
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initEarth, 1000);
+});
 </script>
 </body>
 </html>
