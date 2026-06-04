@@ -628,30 +628,32 @@ Settings
 </div>
 </div>
 <div class="row">
-<div class="col-2">
-<div class="card stagger-fade">
-<div class="card-header">
-<div class="card-title">
-<span class="material-symbols-rounded">analytics</span>
-Threat Distribution
+  <div class="col-2">
+    <div class="card stagger-fade">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="material-symbols-rounded">analytics</span>
+          Threat Distribution
+        </div>
+      </div>
+      <div class="donut-container">
+        <canvas id="chart-threat-dist"></canvas>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
-<div class="donut-container">
-<canvas id="chart-threat-dist"></canvas>
-</div>
-</div>
-</div>
-<div class="col" style="align-self:flex-start">
-<div class="card stagger-fade">
-<div class="card-header">
-<div class="card-title">
-<span class="material-symbols-rounded">show_chart</span>
-Activity Timeline
-</div>
-</div>
-<canvas id="chart-timeline" style="height:220px"></canvas>
-</div>
-</div>
+<div class="row">
+  <div class="col">
+    <div class="card stagger-fade">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="material-symbols-rounded">show_chart</span>
+          Activity Timeline
+        </div>
+      </div>
+      <canvas id="chart-timeline" style="height:220px"></canvas>
+    </div>
+  </div>
 </div>
  
 <div class="card stagger-fade">
@@ -1233,7 +1235,7 @@ function createLineChart(canvasId, data, labels) {
       scales: {
         x: {
           grid: { color: 'rgba(168,85,247,0.1)' },
-          ticks: { color: '#606070' }
+          ticks: { color: '#606070', maxTicksLimit: 12, autoSkip: true }
         },
         y: {
           grid: { color: 'rgba(168,85,247,0.1)' },
