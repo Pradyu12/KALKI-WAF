@@ -16,7 +16,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from waf import state
-from waf.config import DLP_ENABLED, MAX_BODY_BYTES, UPSTREAM_SERVER_URL
+from waf.config import DLP_ENABLED, MAX_BODY_BYTES, TRUSTED_IPS, UPSTREAM_SERVER_URL
 from waf.core.block_page import generate_block_page
 from waf.core.metrics import (
     ACTIVE_CONNECTIONS,
@@ -53,8 +53,24 @@ def _run_anomaly_check(ip: str, headers: dict, ua: str):
         pass  # anomaly scoring is best-effort
 
 
+import ipaddress
+
+
+def _is_private_ip(ip: str) -> bool:
+    """Check if an IP is a private/local address that should never be auto-blacklisted."""
+    try:
+        addr = ipaddress.ip_address(ip)
+        return addr.is_private or addr.is_loopback or addr.is_link_local
+    except ValueError:
+        return False
+
+
 def _check_auto_blacklist(ip: str) -> bool:
     """Check if IP has exceeded block threshold and auto-blacklist if so."""
+    if _is_private_ip(ip):
+        return False
+    if ip in TRUSTED_IPS:
+        return False
     now = time.time()
     timestamps = state.AUTO_BLACKLIST_TRACKER.get(ip, [])
     timestamps = [t for t in timestamps if now - t < _BLOCK_WINDOW]
@@ -143,7 +159,7 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
     # Fire-and-forget anomaly scoring (non-blocking)
     asyncio.ensure_future(asyncio.to_thread(_run_anomaly_check, client_ip, dict(request.headers), user_agent))
 
-    if client_ip in state.IP_BLACKLIST:
+    if client_ip in state.IP_BLACKLIST and not _is_private_ip(client_ip) and client_ip not in TRUSTED_IPS:
         incident_id = str(uuid.uuid4())
         bg_tasks = BackgroundTasks()
         bg_tasks.add_task(
@@ -361,16 +377,17 @@ async def inspect_and_proxy_traffic(request: Request, call_next):
 
         # "block & blacklist" — block page + add to IP blacklist (persistent)
         if rule_action == "block & blacklist":
-            state.IP_BLACKLIST.add(client_ip)
-            from datetime import timedelta
+            if not _is_private_ip(client_ip) and client_ip not in TRUSTED_IPS:
+                state.IP_BLACKLIST.add(client_ip)
+                from datetime import timedelta
 
-            _exp = (datetime.now(UTC) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
-            from waf.db import execute_db as _edb
+                _exp = (datetime.now(UTC) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+                from waf.db import execute_db as _edb
 
-            _edb(
-                "INSERT OR REPLACE INTO ip_blacklist (ip_address, reason, created_by, expires_at) VALUES (?, ?, 'rule', ?)",
-                (client_ip, f"Rule matched: {matched_rule['identifier'] if matched_rule else 'unknown'}", _exp),
-            )
+                _edb(
+                    "INSERT OR REPLACE INTO ip_blacklist (ip_address, reason, created_by, expires_at) VALUES (?, ?, 'rule', ?)",
+                    (client_ip, f"Rule matched: {matched_rule['identifier'] if matched_rule else 'unknown'}", _exp),
+                )
             html_payload = generate_block_page(incident_id, client_ip, detected_threat)
             duration = time.time() - start_time
             REQUEST_DURATION.observe(duration)
