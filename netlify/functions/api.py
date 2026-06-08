@@ -3,7 +3,7 @@ import os
 import traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "api"))
 sys.path.insert(0, ROOT)
 
 os.environ.setdefault("WAF_ENV", "production")

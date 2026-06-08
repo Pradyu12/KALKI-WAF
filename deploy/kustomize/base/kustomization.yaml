@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kalki-waf
+
+resources:
+  - ../../helm/kalki-waf/templates/proxy-deployment.yaml
+  - ../../helm/kalki-waf/templates/proxy-service.yaml
+  - ../../helm/kalki-waf/templates/api-deployment.yaml
+  - ../../helm/kalki-waf/templates/api-service.yaml
+  - ../../helm/kalki-waf/templates/ingress.yaml
+  - ../../helm/kalki-waf/templates/secrets.yaml
+  - ../../helm/kalki-waf/templates/configmap.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize

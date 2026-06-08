@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kalki-waf.name" . }}-api
+  labels:
+    {{- include "kalki-waf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kalki-waf.api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kalki-waf.api.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: OTEL_SDK_DISABLED
+              value: "{{ .Values.api.env.OTEL_SDK_DISABLED }}"
+            - name: DB_PATH
+              value: "{{ .Values.api.env.DB_PATH }}"
+            - name: FIREBASE_PROJECT_ID
+              value: "{{ .Values.api.env.FIREBASE_PROJECT_ID }}"
+            - name: ENV
+              value: "{{ .Values.api.env.ENV }}"
+            - name: CORS_ORIGINS
+              value: "{{ join "," .Values.config.corsOrigins }}"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kalki-waf.name" . }}-secrets
+                  key: jwt-secret
+            - name: REDIS_URL
+              value: "{{ .Values.api.env.REDIS_URL }}"
+            - name: FIREBASE_CREDENTIALS_PATH
+              value: "{{ .Values.api.env.FIREBASE_CREDENTIALS_PATH }}"
+          volumeMounts:
+            - name: firebase-credentials
+              mountPath: /app/firebase-credentials.json
+              subPath: firebase-credentials.json
+              readOnly: true
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: firebase-credentials
+          secret:
+            secretName: {{ include "kalki-waf.name" . }}-secrets
+            items:
+              - key: firebase-credentials
+                path: firebase-credentials.json
+        - name: data
+          emptyDir: {}
+---
+{{- if .Values.api.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "kalki-waf.name" . }}-api
+  labels:
+    {{- include "kalki-waf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "kalki-waf.name" . }}-api
+  minReplicas: {{ .Values.api.hpa.minReplicas }}
+  maxReplicas: {{ .Values.api.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

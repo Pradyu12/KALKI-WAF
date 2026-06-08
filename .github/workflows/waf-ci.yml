@@ -29,16 +29,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt ruff
+          pip install -r api/requirements.txt ruff
 
       - name: Lint & Format Check
-        run: ruff check backend/ && ruff format backend/ --check
+        run: ruff check api/ && ruff format api/ --check
 
       - name: Syntax & Compile Check
-        run: find backend -name '*.py' -exec python -m py_compile {} +
+        run: find api -name '*.py' -exec python -m py_compile {} +
 
       - name: Run Unit Tests
-        run: PYTHONPATH=backend pytest backend/tests/ -v --tb=short
+        working-directory: ./api
+        run: PYTHONPATH=. pytest tests/ -v --tb=short
 
   docker-build:
     runs-on: ubuntu-latest
@@ -70,7 +71,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./api
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -95,8 +96,9 @@ jobs:
           script: |
             echo "🚀 Pulling latest Docker images..."
             cd /opt/kalki-waf
-            docker compose pull
-            echo "🔄 Restarting services..."
+            WAF_TAG="${{ env.REGISTRY }}/${{ github.repository }}:sha-${{ github.sha }}"
+            docker pull "$WAF_TAG"
+            export WAF_IMAGE="$WAF_TAG"
             docker compose up -d --remove-orphans
             docker image prune -f
             echo "✅ Deployment complete!"

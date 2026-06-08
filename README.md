@@ -114,16 +114,27 @@ docker-compose up -d --build
 
 ```
 KALKI-WAF/
-├── main.py              # WAF core engine
-├── requirements.txt     # Python dependencies
-├── Dockerfile           # Docker image definition
+├── proxy/               # Go reverse proxy engine (hot path)
+│   ├── cmd/kalki-proxy/ # Entry point
+│   ├── internal/        # Middleware, rules, telemetry
+│   ├── go.mod
+│   └── Dockerfile
+├── api/                 # Python FastAPI management server
+│   ├── main.py          # WAF API entry point
+│   ├── waf/             # WAF core (SIEM, HIDS, FIM, SCA, rules)
+│   ├── tests/           # Test suite
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── dashboard/           # Web dashboard UI
+│   ├── index.html       # Main dashboard
+│   ├── dashboard.html   # Alternate dashboard
+│   └── static/          # Static assets
 ├── docker-compose.yml   # Multi-container setup
-├── schema.sql           # Database schema (for reference)
-├── dashboard.html       # Web UI
-├── tests/
-│   └── test_waf.py      # Test suite
-├── upstream/            # Sample upstream server
-└── firebase-credentials.json  # Firebase config (not included)
+├── kalki.py             # CLI launcher
+├── kalki-desktop.py     # Desktop client
+├── deploy/              # Kubernetes manifests
+│   └── helm/kalki-waf/
+└── datadog/             # Datadog monitoring configs
 ```
 
 ## CI/CD

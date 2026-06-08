@@ -1,7 +1,7 @@
 [build]
   command = "echo 'No build step required'"
   functions = "netlify/functions"
-  publish = "frontend"
+  publish = "dashboard"
 
 # API → Netlify Function
 [[redirects]]
@@ -37,3 +37,4 @@
   from = "/*"
   to = "/dashboard.html"
   status = 200
+  force = true

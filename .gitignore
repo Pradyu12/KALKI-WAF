@@ -42,5 +42,8 @@ htmlcov/
 # ─── Other ───────────────────────────────────────────────────────────
 .kilo/
 .agents/
+.opencode/
+.ruff_cache
+.firebase/
 
 dist/

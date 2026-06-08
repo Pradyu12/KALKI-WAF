@@ -32,6 +32,7 @@ BACKEND_DIR = KALKI_DIR / "backend"
 VENV_DIR = KALKI_DIR / ".venv"
 PID_FILE = Path(tempfile.gettempdir()) / "kalki-server.pid"
 DEFAULT_PORT = 8080
+SERVER_PORT: int = DEFAULT_PORT
 _kalki_procs: list[subprocess.Popen] = []
 
 
@@ -113,8 +114,12 @@ def start_server(port: int = DEFAULT_PORT, force: bool = False) -> subprocess.Po
     if not _port_free(port):
         if force:
             print(f"[KALKI] Port {port} in use — force-killing ...")
-            subprocess.run(["fuser", "-k", f"{port}/tcp"],
-                           capture_output=True, timeout=5)
+            try:
+                subprocess.run(["fuser", "-k", f"{port}/tcp"],
+                               capture_output=True, timeout=5)
+            except FileNotFoundError:
+                subprocess.run(["kill", "$(lsof", "-ti", f":{port})"],
+                               shell=True, capture_output=True, timeout=5)
             time.sleep(1)
         else:
             print(f"[KALKI] Server already running on port {port}")
@@ -229,13 +234,13 @@ def stop_all():
             pass
         PID_FILE.unlink(missing_ok=True)
 
-    # Also kill any lingering uvicorn on our port
+    server_port = SERVER_PORT or DEFAULT_PORT
     try:
-        subprocess.run(["fuser", "-k", f"{DEFAULT_PORT}/tcp"],
+        subprocess.run(["fuser", "-k", f"{server_port}/tcp"],
                        capture_output=True, timeout=5)
     except subprocess.TimeoutExpired:
         print("[WARN] Force killing processes on port")
-        subprocess.run(["fuser", "-k", "-9", f"{DEFAULT_PORT}/tcp"],
+        subprocess.run(["fuser", "-k", "-9", f"{server_port}/tcp"],
                        capture_output=True, timeout=5)
     except Exception:
         pass
@@ -349,8 +354,6 @@ def _do_status():
 # ── CLI ────────────────────────────────────────────────────────────────
 
 def main():
-    
-
     import argparse
     parser = argparse.ArgumentParser(description="KALKI — Local WAF Stack")
     parser.add_argument("mode", nargs="?",
@@ -367,6 +370,9 @@ def main():
     parser.add_argument("--force", "-f", action="store_true",
                         help="Kill existing process on port and restart")
     args = parser.parse_args()
+
+    global SERVER_PORT
+    SERVER_PORT = args.port
 
     if args.mode == "install":
         _ensure_venv()
@@ -392,7 +398,7 @@ def main():
 
     if args.mode in ("server", "start"):
         if not _ensure_venv():
-            print("[KALKI] Setup failed — install deps manually: pip install -r backend/requirements.txt")
+            print("[KALKI] Setup failed — install deps manually: pip install -r api/requirements.txt")
             sys.exit(1)
 
     if args.mode == "server":

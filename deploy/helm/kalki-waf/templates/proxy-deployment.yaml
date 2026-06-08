@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kalki-waf.name" . }}-proxy
+  labels:
+    {{- include "kalki-waf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+spec:
+  replicas: {{ .Values.proxy.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kalki-waf.proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kalki-waf.proxy.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: proxy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: proxy
+          image: "{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
+          imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: UPSTREAM_SERVER_URL
+              value: "{{ .Values.proxy.env.UPSTREAM_SERVER_URL }}"
+            - name: REDIS_URL
+              value: "{{ .Values.proxy.env.REDIS_URL }}"
+            - name: GEOIP_DB_PATH
+              value: "{{ .Values.proxy.env.GEOIP_DB_PATH }}"
+            - name: RATE_LIMIT_THRESHOLD
+              value: "{{ .Values.proxy.env.RATE_LIMIT_THRESHOLD }}"
+            - name: RATE_LIMIT_WINDOW
+              value: "{{ .Values.proxy.env.RATE_LIMIT_WINDOW }}"
+            - name: BLOCKED_COUNTRIES
+              value: "{{ join "," .Values.config.blockedCountries }}"
+            - name: TRUSTED_IPS
+              value: "{{ join "," .Values.config.trustedIPs }}"
+            - name: JS_CHALLENGE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kalki-waf.name" . }}-secrets
+                  key: js-challenge-secret
+            - name: CSRF_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kalki-waf.name" . }}-secrets
+                  key: csrf-secret
+          resources:
+            {{- toYaml .Values.proxy.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+{{- if .Values.proxy.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "kalki-waf.name" . }}-proxy
+  labels:
+    {{- include "kalki-waf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "kalki-waf.name" . }}-proxy
+  minReplicas: {{ .Values.proxy.hpa.minReplicas }}
+  maxReplicas: {{ .Values.proxy.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.proxy.hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.proxy.hpa.targetMemoryUtilizationPercentage }}
+{{- end }}

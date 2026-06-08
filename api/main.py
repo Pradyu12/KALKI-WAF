@@ -1,0 +1,142 @@
+# ruff: noqa: E402 — sys.path.insert between import blocks for PyInstaller
+import asyncio
+import os
+import sys
+from contextlib import asynccontextmanager, suppress
+
+if getattr(sys, "frozen", False):
+    sys.path.insert(0, sys._MEIPASS)
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from waf import state
+from waf.api.routes import router
+from waf.config import CORS_ORIGINS
+from waf.core.telemetry import start_metrics_sampler
+from waf.db import init_db
+from waf.middleware.inspector import count_request, http_client, inspect_and_proxy_traffic
+from waf.middleware.rate_limiter import get_redis_client, redis_client
+from waf.middleware.security_headers import add_security_headers
+from waf.rules.engine import reload_global_posture, reload_rules_cache
+from waf.security.geoip import init_geoip
+
+_metrics_task: asyncio.Task = None
+_otel_started = False
+
+
+def _is_otel_disabled() -> bool:
+    val = os.environ.get("OTEL_SDK_DISABLED", "").strip().lower()
+    return val in ("true", "1", "yes")
+
+
+def _start_otel():
+    global _otel_started
+    if _otel_started or _is_otel_disabled():
+        return
+    _otel_started = True
+
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://datadog-agent:4317")
+    resource = Resource(attributes={"service.name": "kalki-waf"})
+    provider = TracerProvider(resource=resource)
+    if otlp_endpoint:
+        try:
+            exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
+            provider.add_span_processor(BatchSpanProcessor(exporter))
+            print(f"[INFO] OpenTelemetry OTLP exporter configured -> {otlp_endpoint}")
+        except Exception as err:
+            print(f"[WARN] Failed to configure OTLP exporter: {err}")
+
+    current_provider = trace.get_tracer_provider()
+    if not isinstance(current_provider, TracerProvider):
+        trace.set_tracer_provider(provider)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _metrics_task
+    _start_otel()
+    with suppress(Exception):
+        FastAPIInstrumentor.instrument_app(app, tracer_provider=trace.get_tracer_provider())
+    await init_geoip()
+    await get_redis_client()
+    init_db()
+    reload_rules_cache()
+    reload_global_posture()
+    # Load persistent IP blacklist from DB
+    from waf.db import query_db as _q
+
+    _blacklist_rows = _q("SELECT ip_address FROM ip_blacklist WHERE expires_at IS NULL OR expires_at > datetime('now')")
+    if _blacklist_rows:
+        for _r in _blacklist_rows:
+            state.IP_BLACKLIST.add(_r["ip_address"])
+        print(f"[INFO] Loaded {len(_blacklist_rows)} blacklisted IP(s) from database.")
+    # Initialize SIEM/XDR modules
+    from waf.siem.engine import init_siem
+
+    init_siem()
+    _metrics_task = start_metrics_sampler()
+    print("[INFO] KALKI WAF started successfully")
+    yield
+    print("[INFO] KALKI WAF shutting down...")
+    if _metrics_task:
+        _metrics_task.cancel()
+        print("[INFO] Metrics sampler stopped")
+    if redis_client:
+        await redis_client.close()
+        print("[INFO] Redis connection closed")
+    await http_client.aclose()
+    print("[INFO] HTTP client closed")
+    # Flush any pending DB writes
+    from waf.db.sqlite import get_connection as _get_conn
+
+    try:
+        _conn = _get_conn()
+        _conn.commit()
+        _conn.close()
+        print("[INFO] Database connection closed")
+    except Exception:
+        pass
+    print("[INFO] Shutdown complete")
+
+
+app = FastAPI(title="KALKI WAF SIEM/XDR", version="3.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-WAF-Trace-Id", "X-WAF-Flagged", "X-WAF-Threat-Category"],
+    max_age=600,
+)
+
+app.middleware("http")(count_request)
+app.middleware("http")(add_security_headers)
+app.middleware("http")(inspect_and_proxy_traffic)
+app.include_router(router)
+
+if __name__ == "__main__":
+    import os
+
+    try:
+        import subprocess
+
+        port = int(os.getenv("KALKI_PORT", "8080"))
+        result = subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=5)
+        if result.returncode == 0:
+            print(f"[INFO] Freed port {port}")
+    except Exception:
+        pass
+
+    import uvicorn
+
+    port = int(os.getenv("KALKI_PORT", "8080"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

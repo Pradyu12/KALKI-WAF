@@ -1,0 +1,14 @@
+apiVersion: v2
+name: kalki-waf
+description: KALKI WAF — Web Application Firewall with Go proxy and Python management API
+type: application
+version: 2.0.0
+appVersion: 2.0.0
+keywords:
+  - waf
+  - firewall
+  - security
+  - web-application-firewall
+home: https://github.com/Pradyu12/KALKI-WAF
+sources:
+  - https://github.com/Pradyu12/KALKI-WAF

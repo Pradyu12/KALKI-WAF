@@ -1,71 +1,99 @@
-version: '3.8'
-
 services:
-  waf:
-    build: ./backend
+  # ─── Go Proxy (WAF engine, hot path) ──────────────────────────────
+  proxy:
+    build: ./proxy
+    image: ${PROXY_IMAGE:-}
+    restart: always
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - PROXY_PORT=8080
+      - UPSTREAM_SERVER_URL=http://api:8000
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - GEOIP_DB_PATH=/data/GeoLite2-Country.mmdb
+      - RATE_LIMIT_THRESHOLD=${RATE_LIMIT_THRESHOLD:-50}
+      - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-10}
+      - BLOCKED_COUNTRIES=${BLOCKED_COUNTRIES:-}
+      - DEBUG=${DEBUG:-false}
+      # Datadog / OpenTelemetry
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://datadog-agent:4317
+    depends_on:
+      - api
+      - redis
+      - datadog-agent
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "go", "service": "kalki-waf-proxy"}]'
+      com.datadoghq.tags.env: ${DD_ENV:-production}
+      com.datadoghq.tags.service: kalki-waf-proxy
+
+  # ─── Python API (management + dashboard + SIEM) ───────────────────
+  api:
+    build: ./api
+    image: ${API_IMAGE:-}
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-true}
+      - DB_PATH=/data/security_gateway.db
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-}
       - FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
       - UPSTREAM_SERVER_URL=http://upstream:8080
-      # Datadog / OpenTelemetry configuration
-      - DD_AGENT_HOST=datadog-agent
-      - DD_SERVICE=kalki-waf
-      - DD_ENV=${DD_ENV:-production}
-      - DD_VERSION=${CI_COMMIT_SHORT_SHA:-latest}
-      - DD_LOGS_INJECTION=true
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://datadog-agent:4317
-      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_SERVICE_NAME=kalki-waf
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=kalki-waf,service.version=${CI_COMMIT_SHORT_SHA:-latest},deployment.environment=${DD_ENV:-production}
+      - ENV=${ENV:-production}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
       - upstream
       - datadog-agent
     volumes:
-      - ./backend/firebase-credentials.json:/app/firebase-credentials.json:ro
+      - ./api/firebase-credentials.json:/app/firebase-credentials.json:ro
     labels:
-      com.datadoghq.ad.logs: '[{"source": "python", "service": "kalki-waf"}]'
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "kalki-waf-api"}]'
       com.datadoghq.tags.env: ${DD_ENV:-production}
-      com.datadoghq.tags.service: kalki-waf
+      com.datadoghq.tags.service: kalki-waf-api
 
+  # ─── Redis (rate limiting + caching) ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ─── Upstream Test Server ──────────────────────────────────────────
   upstream:
     build:
-      context: ./backend/upstream
+      context: ./api/upstream
       dockerfile: Dockerfile
     restart: always
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       - PORT=8080
 
+  # ─── Datadog Agent (monitoring) ───────────────────────────────────
   datadog-agent:
     image: gcr.io/datadoghq/agent:7
     restart: always
     environment:
-      - DD_API_KEY=${DD_API_KEY:?Datadog API key is required}
+      - DD_API_KEY=${DD_API_KEY:-}
       - DD_SITE=${DD_SITE:-datadoghq.com}
       - DD_HOSTNAME=kalki-waf
       - DD_ENV=${DD_ENV:-production}
       - DD_SERVICE=kalki-waf
       - DD_VERSION=${CI_COMMIT_SHORT_SHA:-latest}
       - DD_TAGS=team:security app:kalki-waf service:kalki-waf
-      # OTLP ingest
       - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENABLED=true
       - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENABLED=true
       - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT=0.0.0.0:4318
-      # Log collection
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
       - DD_CONTAINER_EXCLUDE=name:datadog-agent
       - DD_AC_EXCLUDE=name:datadog-agent
-      # Prometheus / OpenMetrics autodiscovery
-      # APM
       - DD_APM_ENABLED=true
       - DD_APM_NON_LOCAL_TRAFFIC=true
-      # Health
       - DD_HEALTH_PORT=5555
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -76,7 +104,10 @@ services:
       - "4317:4317"
       - "4318:4318"
     healthcheck:
-      test: ["CMD", "agent", "health"]
+      test: ["CMD", "agent", "healthcheck"]
       interval: 30s
       retries: 3
       start_period: 20s
+
+volumes:
+  redis_data:

@@ -2,7 +2,7 @@
 """
 KALKI Desktop — Live SIEM/XDR Monitor
 Native desktop app. Real-time SSE + alert polling + system tray.
-Package: pyinstaller --onefile --windowed --icon=frontend/kalki_waf_logo.png kalki-desktop.py
+Package: pyinstaller --onefile --windowed --icon=dashboard/kalki_waf_logo.png kalki-desktop.py
 """
 
 import json
@@ -16,7 +16,13 @@ import warnings
 import socket
 import math
 import random
-from datetime import UTC, datetime
+from datetime import datetime
+
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone
+    UTC = timezone.utc
 
 # Suppress noisy GTK/GLib/Datadog preload warnings at startup
 os.environ.setdefault("GTK_MODULES", "")
@@ -394,93 +400,73 @@ class KalkiDesktop:
         except Exception:
             pass
 
-        # ── Radar methods ────────────────────────────────────────────────
-        def _draw_radar(self):
-            self.radar_canvas.delete("all")
-            width = self.radar_canvas.winfo_width()
-            height = self.radar_canvas.winfo_height()
-            if width <= 1 or height <= 1:
-                # Canvas not yet sized, defer drawing
-                self.radar_canvas.after(100, self._draw_radar)
-                return
-            cx, cy = width // 2, height // 2
-            radius = min(width, height) // 2 - 10
-            # Outer glow (multiple cyan circles)
-            for i in range(3):
-                r = radius - i * 5
-                alpha = 100 - i * 30
-                color = f'#00{alpha:02x}{alpha:02x}'  # cyan with alpha (tkinter doesn't support alpha, we'll simulate with lighter blue)
-                # Since tkinter doesn't support alpha, we'll use solid cyan and rely on stipple or just color
-                # We'll use a stipple effect by drawing dashed? Not supported on oval. We'll just use multiple outlines.
-                self.radar_canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline="#00ffff", width=1)
-            # Inner grid (simple lines)
-            for angle in range(0, 360, 30):
-                rad = math.radians(angle)
-                x1 = cx + radius * math.cos(rad)
-                y1 = cy + radius * math.sin(rad)
-                x2 = cx - radius * math.cos(rad)
-                y2 = cy - radius * math.sin(rad)
-                self.radar_canvas.create_line(x1, y1, x2, y2, fill="#004040", width=1)
-            for r in [radius * 0.25, radius * 0.5, radius * 0.75]:
-                self.radar_canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline="#004040", width=1)
-            # Sweep line (will be updated by _start_radar_sweep)
-            self.sweep_line = self.radar_canvas.create_line(cx, cy, cx, cy - radius, fill="#00ff00", width=2)
-            # Pulse dots (representing threats) - we'll generate some random dots based on agent data
-            self.threat_dots = []
-            # We'll get agent data from the server? For now, simulate with random dots.
-            # In future, we could pull from the server's agents list and map to angles.
-            # For demo, we'll just add a few random dots.
-            self._update_threat_dots()
+    # ── Radar ────────────────────────────────────────────────────────
+    def _draw_radar(self):
+        self.radar_canvas.delete("all")
+        w = self.radar_canvas.winfo_width()
+        h = self.radar_canvas.winfo_height()
+        if w <= 1 or h <= 1:
+            self.radar_canvas.after(100, self._draw_radar)
+            return
+        cx, cy = w // 2, h // 2
+        radius = min(w, h) // 2 - 10
+        for i in range(3):
+            r = radius - i * 5
+            self.radar_canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline="#00ffff", width=1)
+        for angle in range(0, 360, 30):
+            rad = math.radians(angle)
+            x1 = cx + radius * math.cos(rad)
+            y1 = cy + radius * math.sin(rad)
+            x2 = cx - radius * math.cos(rad)
+            y2 = cy - radius * math.sin(rad)
+            self.radar_canvas.create_line(x1, y1, x2, y2, fill="#004040", width=1)
+        for r in [radius * 0.25, radius * 0.5, radius * 0.75]:
+            self.radar_canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline="#004040", width=1)
+        self.sweep_line = self.radar_canvas.create_line(cx, cy, cx, cy - radius, fill="#00ff00", width=2)
+        self.threat_dots = []
+        self._update_threat_dots()
 
-        def _update_threat_dots(self):
-            # Clear previous threat dots
-            for dot in self.threat_dots:
-                self.radar_canvas.delete(dot)
-            self.threat_dots.clear()
-            # Get local agent info? We'll just add a few random dots for demo.
-            # In a real implementation, we would fetch agents from the server and map them to angles.
-            # For now, we'll add 3-5 random dots.
-            import random
-            width = self.radar_canvas.winfo_width()
-            height = self.radar_canvas.winfo_height()
-            if width <= 1 or height <= 1:
-                self.radar_canvas.after(100, self._update_threat_dots)
-                return
-            cx, cy = width // 2, height // 2
-            radius = min(width, height) // 2 - 10
-            num_dots = random.randint(2, 5)
-            for _ in range(num_dots):
-                angle = random.uniform(0, 2 * math.pi)
-                r = random.uniform(0.2, 0.8) * radius
-                x = cx + r * math.cos(angle)
-                y = cy + r * math.sin(angle)
-                dot = self.radar_canvas.create_oval(x-3, y-3, x+3, y+3, fill="#ff00ff", outline="")
-                self.threat_dots.append(dot)
-            # Schedule next update
-            self.radar_canvas.after(2000, self._update_threat_dots)
+    def _update_threat_dots(self):
+        for dot in self.threat_dots:
+            self.radar_canvas.delete(dot)
+        self.threat_dots.clear()
+        w = self.radar_canvas.winfo_width()
+        h = self.radar_canvas.winfo_height()
+        if w <= 1 or h <= 1:
+            self.radar_canvas.after(100, self._update_threat_dots)
+            return
+        cx, cy = w // 2, h // 2
+        radius = min(w, h) // 2 - 10
+        for _ in range(random.randint(2, 5)):
+            angle = random.uniform(0, 2 * math.pi)
+            r = random.uniform(0.2, 0.8) * radius
+            x = cx + r * math.cos(angle)
+            y = cy + r * math.sin(angle)
+            dot = self.radar_canvas.create_oval(x-3, y-3, x+3, y+3, fill="#ff00ff", outline="")
+            self.threat_dots.append(dot)
+        self.radar_canvas.after(2000, self._update_threat_dots)
 
-        def _start_radar_sweep(self):
-            self.sweep_angle = 0
-            self._animate_sweep()
+    def _start_radar_sweep(self):
+        self.sweep_angle = 0
+        self._animate_sweep()
 
-        def _animate_sweep(self):
-            # Update sweep line angle
-            self.sweep_angle = (self.sweep_angle + 2) % 360
-            rad = math.radians(self.sweep_angle)
-            width = self.radar_canvas.winfo_width()
-            height = self.radar_canvas.winfo_height()
-            if width <= 1 or height <= 1:
-                self.radar_canvas.after(50, self._animate_sweep)
-                return
-            cx, cy = width // 2, height // 2
-            radius = min(width, height) // 2 - 10
-            x = cx + radius * math.cos(rad)
-            y = cy + radius * math.sin(rad)
-            self.radar_canvas.coords(self.sweep_line, cx, cy, x, y)
+    def _animate_sweep(self):
+        self.sweep_angle = (self.sweep_angle + 2) % 360
+        rad = math.radians(self.sweep_angle)
+        w = self.radar_canvas.winfo_width()
+        h = self.radar_canvas.winfo_height()
+        if w <= 1 or h <= 1:
             self.radar_canvas.after(50, self._animate_sweep)
+            return
+        cx, cy = w // 2, h // 2
+        radius = min(w, h) // 2 - 10
+        x = cx + radius * math.cos(rad)
+        y = cy + radius * math.sin(rad)
+        self.radar_canvas.coords(self.sweep_line, cx, cy, x, y)
+        self.radar_canvas.after(50, self._animate_sweep)
 
-        # ── Window close → tray ──────────────────────────────────────────
-        def _on_close(self):
+    # ── Window close → tray ──────────────────────────────────────────
+    def _on_close(self):
         if self._tray_icon:
             self.root.withdraw()
         else:
@@ -489,7 +475,6 @@ class KalkiDesktop:
 
     # ── Run ──────────────────────────────────────────────────────────
     def run(self):
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.mainloop()
 
 

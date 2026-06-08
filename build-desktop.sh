@@ -11,10 +11,9 @@ pip3 install pyinstaller pillow requests sseclient-py --quiet
 echo "==> Building KALKI-Desktop..."
 pyinstaller --onefile --windowed \
   --name "KALKI-Desktop" \
-  --add-data "$(pwd)/frontend/kalki_waf_logo.png:." \
-  --icon "$(pwd)/frontend/kalki_waf_logo.png" \
+  --add-data "$(pwd)/dashboard/kalki_waf_logo.png:." \
   --hidden-import PIL \
-  --hidden-import PIL._tkinter_finder \
+  --collect-all PIL \
   --distpath dist \
   --workpath /tmp/kalki_build \
   --specpath /tmp/kalki_build \

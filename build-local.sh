@@ -16,9 +16,12 @@ mkdir -p /tmp/kalki_build
 
 pyinstaller --onefile \
   --name "KALKI-Server" \
-  --add-data "$(pwd)/frontend:frontend" \
-  --add-data "$(pwd)/backend/waf:waf" \
+  --add-data "$(pwd)/dashboard:dashboard" \
+  --add-data "$(pwd)/api/waf:waf" \
   --hidden-import uvicorn \
+  --hidden-import uvicorn.logging \
+  --hidden-import uvicorn.loops.auto \
+  --hidden-import uvicorn.protocols.http.auto \
   --hidden-import fastapi \
   --hidden-import pydantic \
   --hidden-import httpx \
@@ -34,11 +37,11 @@ pyinstaller --onefile \
   --workpath /tmp/kalki_build \
   --specpath /tmp/kalki_build \
   --noconfirm \
-  backend/runner.py 2>&1 | tail -5
+  api/main.py 2>&1 | tail -5
 
-# If that fails (runner.py might not exist), build the desktop only
+# Verify build
 if [ ! -f "dist/KALKI-Server" ]; then
-    echo "[!] Backend build skipped (runner.py not found — use kalki.py instead)"
+    echo "[!] Server binary not built — use kalki.py start instead"
 fi
 
 # ── 2. Build the desktop app ──
@@ -46,10 +49,9 @@ echo ""
 echo "==> Building KALKI-Desktop..."
 pyinstaller --onefile --windowed \
   --name "KALKI-Desktop" \
-  --add-data "$(pwd)/frontend/kalki_waf_logo.png:." \
-  --icon "$(pwd)/frontend/kalki_waf_logo.png" \
+  --add-data "$(pwd)/dashboard/kalki_waf_logo.png:." \
   --hidden-import PIL \
-  --hidden-import PIL._tkinter_finder \
+  --collect-all PIL \
   --distpath dist \
   --workpath /tmp/kalki_build \
   --specpath /tmp/kalki_build \

@@ -1,0 +1,114 @@
+# ─── Global ───────────────────────────────────────────────────────────
+global:
+  environment: production
+  serviceName: kalki-waf
+
+# ─── Go Proxy ─────────────────────────────────────────────────────────
+proxy:
+  image:
+    repository: ghcr.io/pradyu12/kalki-waf-proxy
+    tag: latest
+    pullPolicy: Always
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8080
+    annotations: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  env:
+    UPSTREAM_SERVER_URL: http://kalki-waf-api:8000
+    REDIS_URL: redis://kalki-waf-redis:6379
+    GEOIP_DB_PATH: /data/GeoLite2-Country.mmdb
+    RATE_LIMIT_THRESHOLD: "50"
+    RATE_LIMIT_WINDOW: "10"
+    BLOCKED_COUNTRIES: ""
+    TRUSTED_IPS: ""
+
+# ─── Python API ───────────────────────────────────────────────────────
+api:
+  image:
+    repository: ghcr.io/pradyu12/kalki-waf-api
+    tag: latest
+    pullPolicy: Always
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  env:
+    OTEL_SDK_DISABLED: "true"
+    DB_PATH: /data/security_gateway.db
+    FIREBASE_PROJECT_ID: ""
+    FIREBASE_CREDENTIALS_PATH: /app/firebase-credentials.json
+    ENV: production
+    CORS_ORIGINS: ""
+    JWT_SECRET: ""
+    REDIS_URL: redis://kalki-waf-redis:6379
+
+# ─── Redis ────────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+# ─── Ingress ──────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: waf.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: proxy
+          port: 8080
+  tls:
+    - hosts:
+        - waf.example.com
+      secretName: kalki-waf-tls
+
+# ─── Config ───────────────────────────────────────────────────────────
+config:
+  blockedCountries: []
+  trustedIPs: []
+  corsOrigins: []
+
+# ─── Secrets ──────────────────────────────────────────────────────────
+secrets:
+  jwtSecret: ""
+  jsChallengeSecret: ""
+  csrfSecret: ""
+  firebaseCredentials: ""
