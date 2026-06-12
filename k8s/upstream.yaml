@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upstream-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: upstream
+  template:
+    metadata:
+      labels:
+        app: upstream
+    spec:
+      containers:
+      - name: upstream
+        image: ghcr.io/${GITHUB_REPOSITORY}/upstream:latest
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: upstream-service
+spec:
+  selector:
+    app: upstream
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

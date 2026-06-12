@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kalki-waf-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kalki-waf
+  template:
+    metadata:
+      labels:
+        app: kalki-waf
+    spec:
+      containers:
+      - name: waf
+        image: ghcr.io/${GITHUB_REPOSITORY}/kalki-waf:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: kalki-config
+        - secretRef:
+            name: kalki-secrets
+        volumeMounts:
+        - name: geoip-db
+          mountPath: /app/geoip
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: geoip-db
+        persistentVolumeClaim:
+          claimName: geoip-pvc
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kalki-waf-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: kalki-waf
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

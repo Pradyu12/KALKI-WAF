@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kalki-config
+data:
+  UPSTREAM_SERVER_URL: "http://upstream-service:8080"
+  REDIS_URL: "redis://redis-service:6379"
+  GEOIP_DB_PATH: "/app/geoip/GeoLite2-Country.mmdb"
+  GEOIP_CITY_DB_PATH: "/app/geoip/GeoLite2-City.mmdb"
+  OTEL_SDK_DISABLED: "true"
+  DD_ENV: "production"
+  DD_SERVICE: "kalki-waf"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kalki-secrets
+type: Opaque
+data:
+  # Base64 encoded 'dev-key-change-me' for example, but should be replaced in real prod
+  ADMIN_API_KEY: ZGV2LWtleS1jaGFuZ2UtbWU=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:alpine
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379

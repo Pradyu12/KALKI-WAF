@@ -10,7 +10,7 @@ A high-performance Web Application Firewall built with FastAPI that protects you
 - **Multiple mitigation postures** - Monitor Only, Standard Posture, Under Attack
 - **Firebase Firestore backend** - Scalable, serverless database for rules and security events
 - **Dashboard UI** - Real-time telemetry and incident monitoring
-- **Docker ready** - Containerized deployment with docker-compose
+- **Kubernetes Ready** - Production-grade orchestration with manifests
 
 ## Getting Started
 
@@ -18,7 +18,7 @@ A high-performance Web Application Firewall built with FastAPI that protects you
 
 - Python 3.11+
 - Firebase project with Firestore enabled
-- Docker & Docker Compose (optional)
+- Kubernetes Cluster & kubectl
 
 ### Installation
 
@@ -50,21 +50,14 @@ export UPSTREAM_SERVER_URL=http://localhost:8080
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### Option 2: Docker Deployment
+#### Option 2: Kubernetes Deployment
 
 ```bash
-# Copy your Firebase credentials to the project root
-cp /path/to/firebase-credentials.json .
+# Apply Kubernetes manifests
+kubectl apply -f k8s/
 
-# Create .env file
-cp .env.example .env
-# Edit .env with your Firebase project ID
-
-# Build and run
-docker-compose up --build
-
-# Or run in detached mode
-docker-compose up -d --build
+# Monitor deployment
+kubectl rollout status deployment/kalki-waf-deployment
 ```
 
 ### Firebase Setup
@@ -117,7 +110,7 @@ KALKI-WAF/
 ├── main.py              # WAF core engine
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile           # Docker image definition
-├── docker-compose.yml   # Multi-container setup
+├── k8s/                 # Kubernetes manifests
 ├── schema.sql           # Database schema (for reference)
 ├── dashboard.html       # Web UI
 ├── tests/

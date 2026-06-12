@@ -310,7 +310,7 @@ td{padding:5px 10px;white-space:nowrap}
       <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#4a4a56;line-height:1.6">
         <div style="margin-bottom:4px">Requires Python 3:</div>
         <div style="background:#0e0e14;border:1px solid #22222a;border-radius:5px;padding:8px 10px;font-size:10px;color:#00dddd;word-break:break-all;user-select:all" id="agt-deploy-cmd">
-          curl -sL https://kalki-waf.onrender.com/api/v1/agents/script | python3 - --server https://kalki-waf.onrender.com
+          curl -sL [SERVER_URL]/api/v1/agents/script | python3 - --server [SERVER_URL]
         </div>
         <div style="margin-top:6px;color:#6a6a78;font-size:9px">
           <div>• Auto-registers → heartbeats every 30s</div>
@@ -323,7 +323,7 @@ td{padding:5px 10px;white-space:nowrap}
         <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#4a4a56;line-height:1.6">
           <div style="margin-bottom:4px">Android (Termux) or iOS (iSH):</div>
           <div style="background:#0e0e14;border:1px solid #22222a;border-radius:5px;padding:8px 10px;font-size:10px;color:#fe00fe;word-break:break-all;user-select:all" id="agt-mobile-cmd">
-            curl -sL https://kalki-waf.onrender.com/api/v1/agents/script/mobile | sh -s -- https://kalki-waf.onrender.com
+            curl -sL [SERVER_URL]/api/v1/agents/script/mobile | sh -s -- [SERVER_URL]
           </div>
           <div style="margin-top:6px;color:#6a6a78;font-size:9px">
             <div>• No Python needed — only sh + curl</div>
@@ -1383,6 +1383,12 @@ function showMsg(id,msg,color){
 }
 
 // ─── Init ──────────────────────────────────────────────────────────
+const serverOrigin = window.location.origin;
+const deployCmd = document.getElementById('agt-deploy-cmd');
+if(deployCmd) deployCmd.textContent = deployCmd.textContent.replace(/\[SERVER_URL\]/g, serverOrigin);
+const mobileCmd = document.getElementById('agt-mobile-cmd');
+if(mobileCmd) mobileCmd.textContent = mobileCmd.textContent.replace(/\[SERVER_URL\]/g, serverOrigin);
+
 initGlobe();
 startSSE();
 loadOverview();

@@ -67,12 +67,27 @@ jobs:
             type=sha,prefix=,suffix=,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push WAF image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: .
+          file: backend/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/kalki-waf:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/kalki-waf:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Upstream image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/upstream
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/upstream:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/upstream:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -85,20 +100,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || '22' }}
-          script: |
-            echo "🚀 Pulling latest Docker images..."
-            cd /opt/kalki-waf
-            docker compose pull
-            echo "🔄 Restarting services..."
-            docker compose up -d --remove-orphans
-            docker image prune -f
-            echo "✅ Deployment complete!"
-            echo "Repository: ${{ github.repository }}"
-            echo "Commit: ${{ github.sha }}"
+      - name: Set up Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Replace placeholder GITHUB_REPOSITORY in manifests
+          sed -i "s/\${GITHUB_REPOSITORY}/${{ github.repository }}/g" k8s/*.yaml
+          kubectl apply -f k8s/
+          kubectl rollout status deployment/kalki-waf-deployment
