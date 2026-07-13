@@ -173,7 +173,7 @@ playwright/.cache/
 *.webp
 
 # Exceptions for Dashboard Assets
-!dashboard/static/earth.jpg
+!dashboard/earth.jpg
 !dashboard/kalki_waf_logo.svg
 !dashboard/kalki_waf_logo.png
 

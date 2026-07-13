@@ -2706,7 +2706,7 @@ function initEarth() {
 
   // Textured Earth Sphere - use slightly smaller radius to prevent Z-fighting with wireframe
   const loader = new THREE.TextureLoader();
-  const earthTexture = loader.load('/earth.jpg');
+  const earthTexture = loader.load('earth.jpg');
   const sphereGeo = new THREE.SphereGeometry(1.98, 64, 64);
   const sphereMat = new THREE.MeshStandardMaterial({
     map: earthTexture,

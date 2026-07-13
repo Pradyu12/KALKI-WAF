@@ -50,7 +50,7 @@ def _resolve_frontend():
         os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "dashboard")),
     ]
     for d in candidates:
-        p = os.path.join(d, "dashboard.html")
+        p = os.path.join(d, "index.html")
         if os.path.isfile(p):
             _FRONTEND_DIR = d
             _dashboard_html = p
@@ -110,7 +110,7 @@ async def dashboard():
     global _dashboard_html, _FRONTEND_DIR
     if not _dashboard_html or not os.path.isfile(_dashboard_html):
         _resolve_frontend()
-    p = _dashboard_html or os.path.join(_FRONTEND_DIR, "dashboard.html")
+    p = _dashboard_html or os.path.join(_FRONTEND_DIR, "index.html")
     try:
         with open(p) as f:
             return HTMLResponse(content=f.read())
@@ -120,7 +120,7 @@ async def dashboard():
 
 @router.get("/earth.jpg")
 async def earth_texture():
-    path = os.path.join(_FRONTEND_DIR, "static", "earth.jpg")
+    path = os.path.join(_FRONTEND_DIR, "earth.jpg")
     if os.path.exists(path):
         with open(path, "rb") as f:
             return Response(content=f.read(), media_type="image/jpeg")
