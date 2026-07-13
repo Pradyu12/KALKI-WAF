@@ -45,6 +45,8 @@ def _resolve_frontend():
         os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "dashboard")),
         os.path.normpath(os.path.join(os.getcwd(), "..", "dashboard")),
         os.path.normpath(os.path.join(os.getcwd(), "dashboard")),
+        "/app/dashboard",
+        "/app/api/dashboard",
         os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "dashboard")),
     ]
     for d in candidates:
@@ -125,19 +127,6 @@ async def earth_texture():
     raise HTTPException(status_code=404, detail="Earth texture not found")
 
 
-@router.get("/kalki_waf_logo.png")
-async def get_logo_png():
-    path = os.path.join(_FRONTEND_DIR, "kalki_waf_logo.png")
-    try:
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                content = f.read()
-            return Response(content=content, media_type="image/png")
-    except Exception as e:
-        print(f"[ERROR] Failed to serve logo: {e}")
-    raise HTTPException(status_code=404, detail="Logo asset not found")
-
-
 @router.get("/kalki_waf_logo.svg")
 async def get_logo_svg():
     path = os.path.join(_FRONTEND_DIR, "kalki_waf_logo.svg")
@@ -149,6 +138,15 @@ async def get_logo_svg():
     except Exception as e:
         print(f"[ERROR] Failed to serve SVG logo: {e}")
     raise HTTPException(status_code=404, detail="SVG logo not found")
+
+
+@router.get("/kalki_waf_logo.png")
+async def get_logo_png():
+    path = os.path.join(_FRONTEND_DIR, "kalki_waf_logo.png")
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return Response(content=f.read(), media_type="image/png")
+    raise HTTPException(status_code=404, detail="PNG logo not found")
 
 
 @router.get("/api/v1/threat-intel/alerts")

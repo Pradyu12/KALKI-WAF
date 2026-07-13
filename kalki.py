@@ -28,7 +28,7 @@ import urllib.request
 from pathlib import Path
 
 KALKI_DIR = Path(__file__).resolve().parent
-BACKEND_DIR = KALKI_DIR / "backend"
+BACKEND_DIR = KALKI_DIR / "api"
 VENV_DIR = KALKI_DIR / ".venv"
 PID_FILE = Path(tempfile.gettempdir()) / "kalki-server.pid"
 DEFAULT_PORT = 8080

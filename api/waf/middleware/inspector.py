@@ -94,7 +94,18 @@ def _check_auto_blacklist(ip: str) -> bool:
     return False
 
 
-_BYPASS_PATHS = frozenset({"/", "/dashboard", "/earth.jpg", "/kalki_waf_logo.png", "/health", "/readyz", "/metrics"})
+_BYPASS_PATHS = frozenset(
+    {
+        "/",
+        "/dashboard",
+        "/earth.jpg",
+        "/kalki_waf_logo.svg",
+        "/kalki_waf_logo.png",
+        "/health",
+        "/readyz",
+        "/metrics",
+    }
+)
 
 
 async def read_body_once(request: Request, max_bytes: int) -> bytes:

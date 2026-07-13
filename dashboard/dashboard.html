@@ -11,8 +11,8 @@ if (window.location.hostname.includes('github.io') || window.location.hostname.i
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>KALKI Security Platform</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/controls/OrbitControls.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 <style>
@@ -227,6 +227,11 @@ body{
   transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
   box-shadow:0 4px 24px rgba(0,0,0,0.4);
   position:relative;overflow:hidden;
+}
+.card:hover{
+  transform:translateY(-4px) scale(1.02);
+  border-color:var(--purple);
+  box-shadow:0 8px 40px var(--shadow);
 }
 .card::before{
   content:'';position:absolute;
@@ -611,7 +616,16 @@ td{padding:16px 20px;font-size:14px;color:var(--text-secondary)}
 
 /* Progress bar */
 .progress{height:6px;background:rgba(168,85,247,0.1);border-radius:3px;overflow:hidden;margin-top:8px}
-.progress > div{height:100%;background:linear-gradient(90deg,var(--purple-dark),var(--purple-light));border-radius:3px;transition:width 0.6s ease}
+.progress > div{height:100%;background:linear-gradient(90deg,var(--purple-dark),var(--purple-light));border-radius:3px;transition:width 0.8s cubic-bezier(0.4, 0, 0.2, 1)}
+
+/* Glow pulse */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 5px var(--purple-glow); border-color: var(--purple-dim); }
+  50% { box-shadow: 0 0 20px var(--purple-glow); border-color: var(--purple); }
+}
+.glow-pulse {
+  animation: glowPulse 2s infinite ease-in-out;
+}
 
 /* Notification toast */
 .toast-wrap{position:fixed;top:80px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px}
@@ -842,7 +856,7 @@ Settings
 <div class="metric-label">Total Requests</div>
 <div class="metric-trend trend-up" id="requests-trend">+12.5%</div>
 </div>
-<div class="metric-card">
+<div class="metric-card glow-pulse">
 <div class="metric-icon">
 <span class="material-symbols-rounded">block</span>
 </div>
@@ -986,7 +1000,7 @@ By Severity
 <div class="metric-value" id="siem-total">0</div>
 <div class="metric-label">Total Alerts</div>
 </div>
-<div class="metric-card">
+<div class="metric-card glow-pulse">
 <div class="metric-icon">
 <span class="material-symbols-rounded">priority_high</span>
 </div>
@@ -1482,12 +1496,13 @@ function getBadge(severity) {
 }
 // Chart Creators
 function createDonutChart(canvasId, value, max, color) {
-  const ctx = document.getElementById(canvasId);
-  if (!ctx) return null;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
   
   if (charts[canvasId]) charts[canvasId].destroy();
   
-  charts[canvasId] = new Chart(ctx, {
+  const ctx2d = canvas.getContext('2d');
+  charts[canvasId] = new Chart(ctx2d, {
     type: 'doughnut',
     data: {
       datasets: [{
@@ -1511,18 +1526,20 @@ function createDonutChart(canvasId, value, max, color) {
 }
 
 function createPieChart(canvasId, data, labels, colors) {
-  const ctx = document.getElementById(canvasId);
-  if (!ctx) return null;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
   
   if (charts[canvasId]) charts[canvasId].destroy();
   
+  const ctx2d = canvas.getContext('2d');
+
   if (!data || data.length === 0) {
     data = [1];
     labels = ['No Data'];
     colors = ['rgba(168,85,247,0.2)'];
   }
   
-  charts[canvasId] = new Chart(ctx, {
+  charts[canvasId] = new Chart(ctx2d, {
     type: 'doughnut',
     data: {
       labels: labels,
@@ -1564,7 +1581,7 @@ function createLineChart(canvasId, data, labels) {
   gradient.addColorStop(0, 'rgba(168,85,247,0.3)');
   gradient.addColorStop(1, 'rgba(168,85,247,0)');
   
-  charts[canvasId] = new Chart(ctx, {
+  charts[canvasId] = new Chart(ctx2d, {
     type: 'line',
     data: {
       labels: labels,
@@ -1847,7 +1864,7 @@ async function loadVuln() {
     if (stats) {
       document.getElementById('vuln-total').textContent = stats.total_vulnerabilities || 0;
       document.getElementById('vuln-cvss').textContent = (stats.average_cvss || 0).toFixed(1);
-      document.getElementById('vuln-packages').textContent = stats.total_packages ?? stats.total_vulnerabilities || 0;
+      document.getElementById('vuln-packages').textContent = stats.total_packages || stats.total_vulnerabilities || 0;
       
       const sevData = stats.by_severity || {};
       const sevLabels = Object.keys(sevData);
@@ -2648,15 +2665,23 @@ function createLandParticles(radius = 2) {
 function initEarth() {
   const container = document.getElementById('threat-map-container');
   if (!container || !window.THREE) return;
+  if (earthRenderer) return;
   const cw = container.clientWidth;
   const ch = container.clientHeight;
-  if (cw < 10 || ch < 10) return;
+  if (cw < 10 || ch < 10) {
+    setTimeout(initEarth, 100);
+    return;
+  }
 
   earthScene = new THREE.Scene();
   earthScene.add(createStarfield());
 
-  const ambient = new THREE.AmbientLight(0x4a3a8a, 0.4);
+  // Lighting for the textured globe
+  const ambient = new THREE.AmbientLight(0x404040, 1);
   earthScene.add(ambient);
+  const sunLight = new THREE.DirectionalLight(0xffffff, 2);
+  sunLight.position.set(5, 3, 5);
+  earthScene.add(sunLight);
 
   earthCamera = new THREE.PerspectiveCamera(45, cw / ch, 0.1, 1000);
   earthCamera.position.set(0, 0.6, 5.0);
@@ -2672,16 +2697,30 @@ function initEarth() {
   controls.dampingFactor = 0.06;
   controls.rotateSpeed = 0.55;
   controls.autoRotate = true;
-  controls.autoRotateSpeed = 0.9;
+  controls.autoRotateSpeed = 1.2;
   controls.enableZoom = false;
   controls.enablePan = false;
   controls.minPolarAngle = Math.PI * 0.25;
   controls.maxPolarAngle = Math.PI * 0.75;
   controls.target.set(0, 0, 0);
 
+  // Textured Earth Sphere - use slightly smaller radius to prevent Z-fighting with wireframe
+  const loader = new THREE.TextureLoader();
+  const earthTexture = loader.load('/earth.jpg');
+  const sphereGeo = new THREE.SphereGeometry(1.98, 64, 64);
+  const sphereMat = new THREE.MeshStandardMaterial({
+    map: earthTexture,
+    metalness: 0.05,
+    roughness: 0.8,
+    transparent: true,
+    opacity: 0.8
+  });
+  const earthSphere = new THREE.Mesh(sphereGeo, sphereMat);
+  earthScene.add(earthSphere);
+
   earthMesh = createWireframeGlobe(2);
   earthScene.add(earthMesh);
-  earthScene.add(createLandParticles(2));
+  earthScene.add(createLandParticles(2.001));
 
   const glowMat = new THREE.ShaderMaterial({
     vertexShader: `varying vec3 vN; void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,

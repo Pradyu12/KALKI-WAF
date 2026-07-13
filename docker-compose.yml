@@ -29,7 +29,9 @@ services:
 
   # ─── Python API (management + dashboard + SIEM) ───────────────────
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     image: ${API_IMAGE:-}
     restart: always
     ports:
